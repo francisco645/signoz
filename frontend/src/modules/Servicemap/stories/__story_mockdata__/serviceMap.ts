@@ -8,7 +8,7 @@ import type {
 	Tags,
 } from 'hooks/useResourceAttribute/types';
 import { getResourceDeploymentKeys } from 'hooks/useResourceAttribute/utils';
-import type { ServicesMapItem } from 'store/actions/serviceMap';
+import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
 import type {
 	TagKeysPayloadProps,
 	TagValuesPayloadProps,
@@ -234,7 +234,7 @@ export const dependencyGraphResponse = ({
 	count,
 	health,
 	tags = [],
-}: DependencyGraphOptions): ServicesMapItem[] =>
+}: DependencyGraphOptions): ServiceMapDependency[] =>
 	DEPENDENCIES.slice(0, count)
 		.filter((dependency) => tags.every((tag) => matchesTag(dependency, tag)))
 		.map(({ parent, child, callCount, callRate, p99 }, index) => ({
@@ -248,7 +248,7 @@ export const dependencyGraphResponse = ({
 
 const ENVIRONMENT_KEY = 'resource_deployment_environment';
 const CLUSTER_KEY = 'resource_k8s_cluster_name';
-const NAMESPACE_KEY = 'resource_k8s_cluster_namespace';
+const NAMESPACE_KEY = 'resource_k8s_namespace_name';
 
 /**
  * `service.name` and `host.name` are not in the service-map whitelist, so they

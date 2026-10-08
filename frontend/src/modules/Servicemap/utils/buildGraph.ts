@@ -1,9 +1,6 @@
-import type {
-	ServiceMapDependency,
-	ServiceMapGraph,
-	ServiceMapLink,
-	ServiceMapNode,
-} from '../types';
+import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
+
+import type { ServiceMapGraph, ServiceMapLink, ServiceMapNode } from '../types';
 
 type Position = Pick<ServiceMapNode, 'x' | 'y' | 'vx' | 'vy'>;
 
