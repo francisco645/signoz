@@ -19,7 +19,7 @@ interface ServiceNodeTotals {
 	callRate: number;
 }
 
-const compareIds = (a: string, b: string): number =>
+export const compareIds = (a: string, b: string): number =>
 	a < b ? -1 : Number(a > b);
 
 const toMetrics = (service: ServicesList): ServiceMetrics => ({
