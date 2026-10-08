@@ -3,6 +3,8 @@
 FROM nginx:1.27-alpine
 
 ENV SIGNOZ_BACKEND=http://signoz:8080
+# 1 allows login and session refresh, which write session rows.
+ENV ALLOW_LOGIN=0
 
 COPY frontend-validation/default.conf.template /etc/nginx/templates/default.conf.template
 COPY frontend/build/ /usr/share/nginx/html/
