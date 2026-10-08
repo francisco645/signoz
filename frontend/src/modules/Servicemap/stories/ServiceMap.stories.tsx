@@ -52,6 +52,15 @@ export const FailingTopology: Story = {
 	args: { health: 'failing' },
 };
 
+/**
+ * The 3D panorama: services that receive traffic from outside on top, called
+ * services in the middle, databases and queues below. Flatten drops every node
+ * onto one plane.
+ */
+export const Panorama: Story = {
+	args: { panorama: true },
+};
+
 /** 500 services and 1,500 calls: the acceptance check for pan, zoom and first draw. */
 export const LargeTopology: Story = {
 	args: { topology: 'large' },

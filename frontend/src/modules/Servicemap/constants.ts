@@ -11,6 +11,7 @@ export const URL_PARAMS = {
 	selected: 'selected',
 	focus: 'focus',
 	focusDirection: 'focusDir',
+	view: 'view',
 } as const;
 
 export const PANEL_SIZE = {
@@ -114,6 +115,11 @@ export const HEALTH_LABEL: Record<HealthBand, string> = {
 };
 
 export const SERVICE_MAP_TEXT = {
+	mapView: 'Map view',
+	view2d: '2D',
+	view3d: '3D',
+	view3dUnavailable:
+		'3D needs WebGL, which this browser or machine has turned off.',
 	loading: 'Loading service map…',
 	updating: 'Updating…',
 	errorTitle: "Couldn't load the service map",

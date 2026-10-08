@@ -1,0 +1,167 @@
+.panorama {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	background: var(--l1-background);
+}
+
+.stage {
+	position: absolute;
+	inset: 0;
+
+	&:focus-visible {
+		outline: 2px solid var(--accent-primary);
+		outline-offset: -2px;
+	}
+
+	canvas {
+		display: block;
+	}
+}
+
+.card {
+	padding: var(--spacing-5) var(--spacing-6);
+	border: 1px solid var(--l2-border);
+	border-radius: var(--radius-2);
+	background: var(--l2-background);
+	color: var(--l2-foreground);
+	font-size: var(--periscope-font-size-small);
+	line-height: var(--line-height-18);
+}
+
+.controls {
+	position: absolute;
+	top: var(--spacing-4);
+	right: var(--spacing-4);
+	z-index: 3;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--spacing-4);
+	align-items: center;
+	justify-content: flex-end;
+	padding: var(--spacing-2);
+	border-radius: var(--radius-2);
+	background: var(--l1-background);
+}
+
+.segmented {
+	display: inline-flex;
+	border: 1px solid var(--l2-border);
+	border-radius: var(--radius-2);
+
+	[aria-pressed='true'] {
+		background: var(--l3-background);
+		color: var(--l1-foreground);
+	}
+}
+
+.summary {
+	position: absolute;
+	top: calc(var(--spacing-4) + 3rem);
+	right: var(--spacing-4);
+	z-index: 1;
+	min-width: 15rem;
+}
+
+.legend {
+	position: absolute;
+	bottom: var(--spacing-8);
+	left: var(--spacing-8);
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-4);
+	max-width: 18rem;
+}
+
+.hint {
+	position: absolute;
+	right: var(--spacing-4);
+	bottom: var(--spacing-8);
+	z-index: 1;
+	max-width: 18rem;
+	color: var(--l3-foreground);
+}
+
+.sectionTitle {
+	margin-bottom: var(--spacing-2);
+	color: var(--l3-foreground);
+	font-size: var(--periscope-font-size-small);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.row {
+	display: flex;
+	gap: var(--spacing-3);
+	align-items: center;
+	justify-content: space-between;
+}
+
+.item {
+	display: flex;
+	gap: var(--spacing-3);
+	align-items: center;
+}
+
+.value {
+	color: var(--l1-foreground);
+	font-family: 'Geist Mono', monospace;
+}
+
+.critical {
+	color: var(--callout-error-title);
+}
+
+.degraded {
+	color: var(--callout-warning-title);
+}
+
+.dot {
+	flex-shrink: 0;
+	width: 0.6rem;
+	height: 0.6rem;
+	border-radius: 50%;
+}
+
+.planeSwatch {
+	flex-shrink: 0;
+	width: 0.9rem;
+	height: 0.5rem;
+	border: 1px solid;
+	border-radius: 1px;
+}
+
+.divider {
+	height: 1px;
+	background: var(--l2-border);
+}
+
+.window {
+	margin-bottom: var(--spacing-3);
+	color: var(--l3-foreground);
+}
+
+.tierName {
+	color: var(--l1-foreground);
+	font-weight: var(--font-weight-medium);
+}
+
+.muted {
+	color: var(--l3-foreground);
+}
+
+.srOnly {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.legendHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}

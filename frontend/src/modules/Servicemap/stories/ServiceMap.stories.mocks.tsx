@@ -35,6 +35,8 @@ import {
 	type Topology,
 } from './__story_mockdata__/serviceMap';
 
+import { URL_PARAMS } from '../constants';
+
 const GRAPH = 'Service map · graph';
 const FILTERS = 'Service map · filters';
 
@@ -43,16 +45,23 @@ interface DependencyGraphBody {
 	tags?: Tags[];
 }
 
-const serviceMapRoute = (filters: readonly ResourceFilter[]): string => {
-	if (filters.length === 0) {
+const serviceMapRoute = (
+	filters: readonly ResourceFilter[],
+	isPanorama: boolean,
+): string => {
+	const params = new URLSearchParams();
+	if (filters.length > 0) {
+		params.set(
+			QueryParams.resourceAttributes,
+			encode(JSON.stringify(resourceFilterQueries(filters))),
+		);
+	}
+	if (isPanorama) {
+		params.set(URL_PARAMS.view, '3d');
+	}
+	if (!params.toString()) {
 		return ROUTES.SERVICE_MAP;
 	}
-
-	const params = new URLSearchParams({
-		[QueryParams.resourceAttributes]: encode(
-			JSON.stringify(resourceFilterQueries(filters)),
-		),
-	});
 
 	return `${ROUTES.SERVICE_MAP}?${params.toString()}`;
 };
@@ -92,6 +101,12 @@ export const serviceMapMocks = defineStoryMocks({
 			description: 'Values the environment selector offers.',
 			value: 3,
 			max: 5,
+		}),
+		panorama: toggleControl('3D panorama', {
+			group: GRAPH,
+			description:
+				'Opens the 3D view: entry, internal and data planes. Needs WebGL.',
+			value: false,
 		}),
 		serviceMetrics: toggleControl('Service metrics available', {
 			group: GRAPH,
@@ -167,5 +182,7 @@ export const serviceMapMocks = defineStoryMocks({
 			),
 		),
 	],
-	config: (values) => ({ route: serviceMapRoute(values.filters) }),
+	config: (values) => ({
+		route: serviceMapRoute(values.filters, values.panorama),
+	}),
 });

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { Focus } from '@signozhq/icons';
 import { Button } from '@signozhq/ui/button';
 import {
@@ -22,14 +22,19 @@ import {
 import FocusBanner from './Focus/FocusBanner';
 import { useAnimateDirection } from './hooks/useAnimateDirection';
 import { useContainerSize } from './hooks/useContainerSize';
+import { useMapView } from './hooks/useMapView';
 import { useServiceMapInteractions } from './hooks/useServiceMapInteractions';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
+import { useWindowLabel } from './hooks/useWindowLabel';
 import { useYesterdayServices } from './hooks/useYesterdayServices';
 import ServiceMapLegend from './Legend/ServiceMapLegend';
 import ServiceNodePanel from './NodePanel/ServiceNodePanel';
+import PanoramaSlot from './Panorama/PanoramaSlot';
 import CopyLinkButton from './Toolbar/CopyLinkButton';
+import MapViewToggle from './Toolbar/MapViewToggle';
 import ServiceSearch from './Toolbar/ServiceSearch';
 import type { ServiceMapGraph } from './types';
+import { isWebGLAvailable } from './utils/webgl';
 
 import styles from './ServiceMapWorkspace.module.scss';
 
@@ -81,6 +86,12 @@ function ServiceMapWorkspace({
 		handleKeyDown,
 	} = useServiceMapInteractions(graph, searchRef, canvasRef);
 	const animateDirection = useAnimateDirection();
+	const [hasWebGL] = useState(isWebGLAvailable);
+	const [is3dBroken, setIs3dBroken] = useState(false);
+	const is3dAvailable = hasWebGL && !is3dBroken;
+	const [mapView, setMapView] = useMapView();
+	const is3d = mapView === '3d' && is3dAvailable;
+	const windowLabel = useWindowLabel(minTime, maxTime);
 	const yesterday = useYesterdayServices(minTime, maxTime, queries, !!selected);
 
 	const insets = useMemo(
@@ -115,10 +126,20 @@ function ServiceMapWorkspace({
 		[graph.nodes, prefersReducedMotion, select],
 	);
 
+	// The 2D shortcuts drive the cursor, search and focus mode, none of which the 3D view has.
+	const handlePanoramaKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
+		if (event.key === 'Escape' && selected) {
+			closePanel();
+		}
+	};
+
 	return (
 		// Shortcuts cover the canvas and the panel; the handler ignores typing in inputs.
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
-		<div className={styles.workspace} onKeyDown={handleKeyDown}>
+		<div
+			className={styles.workspace}
+			onKeyDown={is3d ? handlePanoramaKeyDown : handleKeyDown}
+		>
 			<ResizablePanelGroup
 				orientation="horizontal"
 				id="service-map-workspace"
@@ -127,23 +148,50 @@ function ServiceMapWorkspace({
 				<ResizablePanel id="service-map-canvas-slot" minSize="30%">
 					<div ref={setCanvasArea} className={styles.canvasArea}>
 						<div className={styles.toolbar}>
-							<ServiceSearch
-								ref={searchRef}
-								nodes={graph.nodes}
-								onSelect={(id): void => {
-									selectAndCenter(id, SEARCH_ZOOM);
-									canvasRef.current?.focus({ preventScroll: true });
+							<MapViewToggle
+								view={is3d ? '3d' : '2d'}
+								is3dAvailable={is3dAvailable}
+								onChange={(view): void => {
+									// Focus mode has no 3D rendering: leave it rather than hide it.
+									if (view === '3d' && focusRoot) {
+										exitFocus();
+									}
+									setMapView(view);
 								}}
-								onDismiss={(): void =>
-									canvasRef.current?.focus({ preventScroll: true })
-								}
 							/>
+							{!is3d && (
+								<ServiceSearch
+									ref={searchRef}
+									nodes={graph.nodes}
+									onSelect={(id): void => {
+										selectAndCenter(id, SEARCH_ZOOM);
+										canvasRef.current?.focus({ preventScroll: true });
+									}}
+									onDismiss={(): void =>
+										canvasRef.current?.focus({ preventScroll: true })
+									}
+								/>
+							)}
 							<CopyLinkButton minTime={minTime} maxTime={maxTime} />
 							{isFetching && (
 								<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
 							)}
 						</div>
-						{focusRoot && focusSet && (
+						{is3d && (
+							<PanoramaSlot
+								graph={graph}
+								width={width}
+								height={height}
+								windowLabel={windowLabel}
+								selectedId={selected ?? undefined}
+								onNodeClick={select}
+								onError={(): void => {
+									setIs3dBroken(true);
+									setMapView('2d');
+								}}
+							/>
+						)}
+						{!is3d && focusRoot && focusSet && (
 							<FocusBanner
 								ref={setBanner}
 								root={focusRoot}
@@ -158,21 +206,25 @@ function ServiceMapWorkspace({
 								onExit={exitFocus}
 							/>
 						)}
-						<ServiceMapCanvas
-							ref={canvasRef}
-							fgRef={fgRef}
-							isUpdating={isFetching}
-							isFlowEnabled={animateDirection.isEnabled}
-							cursorId={cursorId}
-							graph={graph}
-							width={width}
-							height={height}
-							insets={insets}
-							selectedId={selected ?? undefined}
-							highlighted={highlighted}
-							onNodeClick={clickNode}
-						/>
-						<ServiceMapLegend ref={setLegend} animateDirection={animateDirection} />
+						{!is3d && (
+							<ServiceMapCanvas
+								ref={canvasRef}
+								fgRef={fgRef}
+								isUpdating={isFetching}
+								isFlowEnabled={animateDirection.isEnabled}
+								cursorId={cursorId}
+								graph={graph}
+								width={width}
+								height={height}
+								insets={insets}
+								selectedId={selected ?? undefined}
+								highlighted={highlighted}
+								onNodeClick={clickNode}
+							/>
+						)}
+						{!is3d && (
+							<ServiceMapLegend ref={setLegend} animateDirection={animateDirection} />
+						)}
 						<div className={styles.srOnly} aria-live="polite">
 							{announcement}
 						</div>
@@ -196,24 +248,28 @@ function ServiceMapWorkspace({
 								scopeLabels={scopeLabels}
 								minTime={minTime}
 								maxTime={maxTime}
-								actions={[
-									{
-										key: 'focus',
-										component: (
-											<Button
-												variant={focusRoot === selected ? 'solid' : 'ghost'}
-												color="secondary"
-												size="sm"
-												prefix={<Focus />}
-												onClick={toggleFocus}
-												aria-pressed={focusRoot === selected}
-												testId="service-map-panel-focus"
-											>
-												{`${SERVICE_MAP_TEXT.focus} (F)`}
-											</Button>
-										),
-									},
-								]}
+								actions={
+									is3d
+										? []
+										: [
+												{
+													key: 'focus',
+													component: (
+														<Button
+															variant={focusRoot === selected ? 'solid' : 'ghost'}
+															color="secondary"
+															size="sm"
+															prefix={<Focus />}
+															onClick={toggleFocus}
+															aria-pressed={focusRoot === selected}
+															testId="service-map-panel-focus"
+														>
+															{`${SERVICE_MAP_TEXT.focus} (F)`}
+														</Button>
+													),
+												},
+											]
+								}
 								onSelect={(id): void => selectAndCenter(id)}
 								onClose={closePanel}
 							/>

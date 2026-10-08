@@ -32,6 +32,13 @@ jest.mock('react-force-graph-2d', () => ({
 	),
 }));
 
+jest.mock('../utils/webgl', () => ({ isWebGLAvailable: (): boolean => true }));
+
+jest.mock('../Panorama/PanoramaView', () => ({
+	__esModule: true,
+	default: (): JSX.Element => <div data-testid="service-map-panorama" />,
+}));
+
 const DEPENDENCY_GRAPH_URL = '*/api/v1/dependency_graph';
 
 const dependencies: ServiceMapDependency[] = [
@@ -132,6 +139,31 @@ describe('ServiceMap', () => {
 		await expect(screen.findByTestId('force-graph')).resolves.toHaveTextContent(
 			'cartfrontend',
 		);
+	});
+
+	it('switches to the 3D panorama and back', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		server.use(
+			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
+				res(ctx.status(200), ctx.json(dependencies)),
+			),
+		);
+
+		openWithFilters([environmentFilter(['prod'])]);
+		await screen.findByTestId('force-graph');
+
+		await user.click(screen.getByTestId('service-map-view-3d'));
+		await expect(
+			screen.findByTestId('service-map-panorama'),
+		).resolves.toBeInTheDocument();
+		expect(screen.queryByTestId('force-graph')).not.toBeInTheDocument();
+		expect(screen.getByTestId('service-map-view-3d')).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		);
+
+		await user.click(screen.getByTestId('service-map-view-2d'));
+		await expect(screen.findByTestId('force-graph')).resolves.toBeInTheDocument();
 	});
 
 	it('inspects a service in the side panel', async () => {
