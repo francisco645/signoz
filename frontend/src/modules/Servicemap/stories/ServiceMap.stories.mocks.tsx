@@ -57,7 +57,7 @@ export const serviceMapMocks = defineStoryMocks({
 		services: countControl('Dependencies', {
 			group: GRAPH,
 			description:
-				'Call edges the endpoint answers with. Every one of them is a link and its two nodes; 0 is the "No Service Found" card.',
+				'Call edges the endpoint answers with. Every one of them is a link and its two nodes; 0 is the empty state.',
 			value: MAX_DEPENDENCIES,
 			max: MAX_DEPENDENCIES,
 		}),
@@ -71,9 +71,9 @@ export const serviceMapMocks = defineStoryMocks({
 		filters: multiChoiceControl<ResourceFilter>('Applied filters', {
 			group: FILTERS,
 			description:
-				'Resource attributes the page opens with, as the environment selector and a chip. The graph narrows to what they match.',
+				'Resource attributes the page opens with, as the environment selector and chips. Without an environment or a cluster the map asks for one; a service filter is shown but ignored.',
 			options: RESOURCE_FILTERS,
-			value: [],
+			value: ['environment'],
 		}),
 		environments: countControl('Environments', {
 			group: FILTERS,

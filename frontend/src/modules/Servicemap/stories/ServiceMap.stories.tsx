@@ -14,8 +14,8 @@ const pageStory = storyMocks(serviceMapMocks, { layout: 'app' });
 
 /**
  * Service to service calls as a force graph over `/api/v1/dependency_graph`,
- * nodes sized by request rate and coloured by error rate, with link details on
- * hover.
+ * scoped to an environment or a cluster, nodes sized by request rate and
+ * coloured by error rate, with link details on hover.
  *
  * Route: `/service-map`.
  */
@@ -54,6 +54,24 @@ export const Filtered: Story = {
 	args: { filters: ['environment', 'cluster'] },
 };
 
+/**
+ * No environment or cluster picked: the map would sum every environment, so it
+ * asks for one instead of querying.
+ */
+export const ScopeRequired: Story = {
+	args: { filters: [] },
+};
+
+/** Two environments picked: the graph sums them, and a warning says so. */
+export const MixedEnvironments: Story = {
+	args: { filters: ['mixed-environments'] },
+};
+
+/** A service filter from the Services page: shown as a chip, dropped by the API. */
+export const IgnoredFilters: Story = {
+	args: { filters: ['environment', 'service'] },
+};
+
 /** A workspace with no dependencies recorded in the selected time range. */
 export const NoServices: Story = {
 	args: { services: 0 },
@@ -61,7 +79,7 @@ export const NoServices: Story = {
 
 /** The filter's real empty branch when no resource attributes have been ingested. */
 export const NoResourceAttributes: Story = {
-	args: { resourceAttributes: false },
+	args: { resourceAttributes: false, filters: [] },
 	play: async ({ canvasElement }): Promise<void> => {
 		const filter = await within(canvasElement).findByTestId(
 			'resource-attributes-filter',

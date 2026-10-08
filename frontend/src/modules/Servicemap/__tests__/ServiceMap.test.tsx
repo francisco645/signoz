@@ -1,3 +1,7 @@
+import ROUTES from 'constants/routes';
+import { IResourceAttribute } from 'hooks/useResourceAttribute/types';
+import { encode } from 'js-base64';
+import history from 'lib/history';
 import { rest, server } from 'mocks-server/server';
 import { render, screen, userEvent } from 'tests/test-utils';
 import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
@@ -30,7 +34,80 @@ const dependencies: ServiceMapDependency[] = [
 	},
 ];
 
+const environmentFilter = (environments: string[]): IResourceAttribute => ({
+	id: 'env',
+	tagKey: 'resource_deployment.environment',
+	operator: 'IN',
+	tagValue: environments,
+});
+
+const openWithFilters = (filters: IResourceAttribute[]): void => {
+	const search = new URLSearchParams({
+		resourceAttribute: encode(JSON.stringify(filters)),
+	});
+	history.push(`${ROUTES.SERVICE_MAP}?${search.toString()}`);
+	render(<ServiceMap />, undefined, {
+		initialRoute: `${ROUTES.SERVICE_MAP}?${search.toString()}`,
+	});
+};
+
 describe('ServiceMap', () => {
+	afterEach(() => {
+		history.push(ROUTES.SERVICE_MAP);
+	});
+
+	it('asks for an environment or a cluster before querying', async () => {
+		const requested = jest.fn();
+		server.use(
+			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) => {
+				requested();
+				return res(ctx.status(200), ctx.json(dependencies));
+			}),
+		);
+
+		openWithFilters([]);
+
+		await expect(
+			screen.findByTestId('service-map-scope-required'),
+		).resolves.toBeInTheDocument();
+		expect(requested).not.toHaveBeenCalled();
+	});
+
+	it('warns when the map sums several environments', async () => {
+		server.use(
+			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
+				res(ctx.status(200), ctx.json(dependencies)),
+			),
+		);
+
+		openWithFilters([environmentFilter(['prod', 'staging'])]);
+
+		await expect(
+			screen.findByTestId('service-map-notice-mixed-environments'),
+		).resolves.toHaveTextContent('prod + staging');
+	});
+
+	it('lists the filters the map ignores', async () => {
+		server.use(
+			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
+				res(ctx.status(200), ctx.json(dependencies)),
+			),
+		);
+
+		openWithFilters([
+			environmentFilter(['prod']),
+			{
+				id: 'svc',
+				tagKey: 'resource_service_name',
+				operator: 'IN',
+				tagValue: ['cart'],
+			},
+		]);
+
+		await expect(
+			screen.findByTestId('service-map-notice-ignored-filters'),
+		).resolves.toHaveTextContent('service.name IN cart');
+	});
 	it('draws the graph once the dependencies load', async () => {
 		server.use(
 			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
@@ -38,7 +115,7 @@ describe('ServiceMap', () => {
 			),
 		);
 
-		render(<ServiceMap />);
+		openWithFilters([environmentFilter(['prod'])]);
 
 		expect(screen.getByTestId('service-map-loading')).toBeInTheDocument();
 		await expect(screen.findByTestId('force-graph')).resolves.toHaveTextContent(
@@ -53,7 +130,7 @@ describe('ServiceMap', () => {
 			),
 		);
 
-		render(<ServiceMap />);
+		openWithFilters([environmentFilter(['prod'])]);
 
 		await expect(
 			screen.findByTestId('service-map-empty'),
@@ -72,7 +149,7 @@ describe('ServiceMap', () => {
 			}),
 		);
 
-		render(<ServiceMap />);
+		openWithFilters([environmentFilter(['prod'])]);
 
 		await expect(
 			screen.findByTestId('service-map-error'),
