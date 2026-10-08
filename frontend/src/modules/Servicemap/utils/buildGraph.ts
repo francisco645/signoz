@@ -2,12 +2,14 @@ import type { ServicesList } from 'types/api/metrics/getService';
 import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
 
 import type {
+	HealthBand,
 	ServiceMapGraph,
 	ServiceMapLink,
 	ServiceMapNode,
 	ServiceMetrics,
 } from '../types';
-import { getHealthBand } from './health';
+import { BAND_SEVERITY, getHealthBand, isAlerting } from './health';
+import { getNodeKind } from './nodeKind';
 
 type Position = Pick<ServiceMapNode, 'x' | 'y' | 'vx' | 'vy'>;
 
@@ -32,8 +34,10 @@ const toMetrics = (service: ServicesList): ServiceMetrics => ({
  * Nodes and links are sorted by id: d3-force places nodes without a position by
  * their index, so the same data always draws the same layout.
  *
- * A node's health comes from the service's own spans (`services`). Databases,
- * queues and client-only services have none, so they are drawn as no data.
+ * A service's health comes from its own spans (`services`). Databases and queues
+ * have none, so they take the worst band among the calls into them: a failing
+ * redis turns red, not only the arrow pointing at it. Client-only services have
+ * no spans and no measured calls into them, so they are drawn as no data.
  */
 export const buildGraph = (
 	dependencies: ServiceMapDependency[],
@@ -45,6 +49,7 @@ export const buildGraph = (
 	);
 	const incoming = new Map<string, ServiceNodeTotals>();
 	const ids = new Set<string>();
+	const callers = new Set(dependencies.map(({ parent }) => parent));
 	const pairs = new Set(
 		dependencies.map(({ parent, child }) => `${parent}\u0000${child}`),
 	);
@@ -64,28 +69,6 @@ export const buildGraph = (
 		incoming.set(child, totals);
 	});
 
-	const nodes: ServiceMapNode[] = [...ids].sort(compareIds).map((id) => {
-		const totals = incoming.get(id) ?? {
-			callCount: 0,
-			errorCount: 0,
-			callRate: 0,
-		};
-		const service = servicesByName.get(id);
-		const metrics = service ? toMetrics(service) : undefined;
-
-		return {
-			id,
-			metrics,
-			incoming: {
-				...totals,
-				errorRate:
-					totals.callCount > 0 ? (totals.errorCount / totals.callCount) * 100 : 0,
-			},
-			band: getHealthBand(metrics),
-			...previousPositions.get(id),
-		};
-	});
-
 	const links: ServiceMapLink[] = dependencies
 		.map(({ parent, child, callCount, callRate, errorRate, p99 }) => ({
 			source: parent,
@@ -95,11 +78,59 @@ export const buildGraph = (
 			errorRate,
 			p99,
 			band: getHealthBand({ callCount, errorRate }),
+			colorBand: getHealthBand({ callCount, errorRate }),
 			isBidirectional: pairs.has(`${child}\u0000${parent}`),
 		}))
 		.sort(
 			(a, b) => compareIds(a.source, b.source) || compareIds(a.target, b.target),
 		);
+
+	const worstIncoming = new Map<string, HealthBand>();
+	links.forEach(({ target, band }) => {
+		const current = worstIncoming.get(target);
+		if (!current || BAND_SEVERITY[band] < BAND_SEVERITY[current]) {
+			worstIncoming.set(target, band);
+		}
+	});
+
+	const nodes: ServiceMapNode[] = [...ids].sort(compareIds).map((id) => {
+		const totals = incoming.get(id) ?? {
+			callCount: 0,
+			errorCount: 0,
+			callRate: 0,
+		};
+		const service = servicesByName.get(id);
+		const metrics = service ? toMetrics(service) : undefined;
+		const kind = getNodeKind(id, !!metrics, callers.has(id));
+
+		return {
+			id,
+			metrics,
+			incoming: {
+				...totals,
+				errorRate:
+					totals.callCount > 0 ? (totals.errorCount / totals.callCount) * 100 : 0,
+			},
+			kind,
+			band:
+				kind === 'service'
+					? getHealthBand(metrics)
+					: (worstIncoming.get(id) ?? 'noData'),
+			...previousPositions.get(id),
+		};
+	});
+
+	const bandById = new Map(nodes.map((node) => [node.id, node.band]));
+	links.forEach((link) => {
+		const targetBand = bandById.get(link.target);
+		if (
+			targetBand &&
+			isAlerting(targetBand) &&
+			BAND_SEVERITY[targetBand] < BAND_SEVERITY[link.band]
+		) {
+			link.colorBand = targetBand;
+		}
+	});
 
 	return { nodes, links };
 };

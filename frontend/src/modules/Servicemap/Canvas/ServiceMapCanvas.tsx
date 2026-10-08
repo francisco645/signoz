@@ -1,24 +1,24 @@
 import {
+	forwardRef,
 	memo,
 	MouseEvent,
 	MutableRefObject,
-	useCallback,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from 'react';
 import ForceGraph2D, { ForceGraphMethods } from 'react-force-graph-2d';
+import cx from 'classnames';
 import { useIsDarkMode } from 'hooks/useDarkMode';
 
 import {
-	CAMERA_DURATION_MS,
 	CHARGE_STRENGTH,
 	COOLDOWN_TICKS,
-	FIT_PADDING_PX,
+	GRAVITY_STRENGTH,
 	MAX_ZOOM,
 	MIN_ZOOM,
 	REDUCED_MOTION_WARMUP_TICKS,
+	SERVICE_MAP_TEXT,
 	WARMUP_TICKS,
 	ZOOM_STEP,
 } from '../constants';
@@ -27,10 +27,13 @@ import {
 	GraphNode,
 	useCanvasPainters,
 } from '../hooks/useCanvasPainters';
+import { useGraphCamera } from '../hooks/useGraphCamera';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import type { ServiceMapGraph, ServiceMapLink, ServiceMapNode } from '../types';
 import { buildAdjacency, linkEndId } from '../utils/adjacency';
-import { fitCamera, Insets } from '../utils/camera';
+import type { Insets } from '../utils/camera';
+import { createGravityForce } from '../utils/forces';
+import { isAlerting } from '../utils/health';
 import { getServiceMapPalette } from '../utils/palette';
 import CanvasTooltip from './CanvasTooltip';
 import LinkTooltipContent from './LinkTooltipContent';
@@ -51,174 +54,165 @@ interface ServiceMapCanvasProps {
 	/** Screen space covered by overlays, kept free when fitting the graph. */
 	insets: Insets;
 	selectedId?: string;
+	/** Node the keyboard cursor sits on. */
+	cursorId?: string;
 	highlighted?: ReadonlySet<string>;
+	/** A refresh is in flight: the graph is drawn faded, overlays are not. */
+	isUpdating: boolean;
 	onNodeClick?: (id: string) => void;
-	onBackgroundClick?: () => void;
 }
 
 type Hovered =
 	| { kind: 'node'; node: ServiceMapNode }
 	| { kind: 'link'; link: ServiceMapLink };
 
-function ServiceMapCanvas({
-	fgRef,
-	graph,
-	width,
-	height,
-	insets,
-	selectedId,
-	highlighted,
-	onNodeClick,
-	onBackgroundClick,
-}: ServiceMapCanvasProps): JSX.Element {
-	const isDarkMode = useIsDarkMode();
-	const prefersReducedMotion = usePrefersReducedMotion();
-	const [hovered, setHovered] = useState<Hovered>();
-	const [pointer, setPointer] = useState({ x: 0, y: 0 });
-	const fittedNodesRef = useRef<string>();
-
-	const palette = useMemo(() => getServiceMapPalette(isDarkMode), [isDarkMode]);
-	const adjacency = useMemo(() => buildAdjacency(graph.links), [graph.links]);
-	const nodesWithSpans = useMemo(
-		() => new Set(graph.nodes.filter((n) => n.metrics).map((n) => n.id)),
-		[graph.nodes],
-	);
-	const nodesKey = useMemo(
-		() => graph.nodes.map((node) => node.id).join('\u0000'),
-		[graph.nodes],
-	);
-	const cameraDuration = prefersReducedMotion ? 0 : CAMERA_DURATION_MS;
-
-	const { paintNode, paintNodeArea, paintLink, paintLinkArea } =
-		useCanvasPainters({
-			palette,
-			adjacency,
-			hoveredId: hovered?.kind === 'node' ? hovered.node.id : undefined,
+/**
+ * The canvas itself is focusable: once it has focus the map's shortcuts and the
+ * arrow keys apply, and the keyboard cursor is drawn on the graph.
+ */
+const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
+	function ServiceMapCanvas(
+		{
+			fgRef,
+			graph,
+			width,
+			height,
+			insets,
 			selectedId,
+			cursorId,
 			highlighted,
+			isUpdating,
+			onNodeClick,
+		},
+		ref,
+	): JSX.Element {
+		const isDarkMode = useIsDarkMode();
+		const prefersReducedMotion = usePrefersReducedMotion();
+		const [hovered, setHovered] = useState<Hovered>();
+		const [pointer, setPointer] = useState({ x: 0, y: 0 });
+
+		const palette = useMemo(() => getServiceMapPalette(isDarkMode), [isDarkMode]);
+		const adjacency = useMemo(() => buildAdjacency(graph.links), [graph.links]);
+		const nodesWithSpans = useMemo(
+			() => new Set(graph.nodes.filter((n) => n.metrics).map((n) => n.id)),
+			[graph.nodes],
+		);
+		const alertingTargets = useMemo(
+			() =>
+				new Set(
+					graph.links
+						.filter((link) => isAlerting(link.colorBand))
+						.map((link) => linkEndId(link.target)),
+				),
+			[graph.links],
+		);
+
+		const { resetLabels, paintNode, paintNodeArea, paintLink, paintLinkArea } =
+			useCanvasPainters({
+				palette,
+				adjacency,
+				hoveredId: hovered?.kind === 'node' ? hovered.node.id : undefined,
+				selectedId,
+				cursorId,
+				highlighted,
+				alertingTargets,
+			});
+
+		const { fitToView, zoomBy, handleEngineStop } = useGraphCamera({
+			fgRef,
+			graph,
+			width,
+			height,
+			insets,
+			highlighted,
+			prefersReducedMotion,
 		});
 
-	useEffect(() => {
-		fgRef.current?.d3Force('charge')?.strength(CHARGE_STRENGTH);
-	}, [fgRef, graph]);
-
-	const fitToView = useCallback((): void => {
-		const graphRef = fgRef.current;
-		if (!graphRef || graph.nodes.length === 0) {
-			return;
-		}
-		const camera = fitCamera(
-			graphRef.getGraphBbox((node) => !highlighted || highlighted.has(node.id)),
-			{ width, height },
-			{
-				top: insets.top + FIT_PADDING_PX,
-				right: insets.right + FIT_PADDING_PX,
-				bottom: insets.bottom + FIT_PADDING_PX,
-				left: insets.left + FIT_PADDING_PX,
-			},
-			{ min: MIN_ZOOM, max: MAX_ZOOM },
-		);
-		graphRef.centerAt(camera.x, camera.y, cameraDuration);
-		graphRef.zoom(camera.zoom, cameraDuration);
-	}, [
-		cameraDuration,
-		fgRef,
-		graph.nodes.length,
-		height,
-		highlighted,
-		insets,
-		width,
-	]);
-
-	useEffect(() => {
-		if (highlighted) {
-			fitToView();
-		}
-		// Refit only when the focused set changes, not on every resize.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [highlighted]);
-
-	const handleEngineStop = useCallback((): void => {
-		if (fittedNodesRef.current !== nodesKey) {
-			fittedNodesRef.current = nodesKey;
-			fitToView();
-		}
-	}, [fitToView, nodesKey]);
-
-	const zoomBy = useCallback(
-		(factor: number): void => {
+		useEffect(() => {
 			const graphRef = fgRef.current;
-			if (graphRef) {
-				graphRef.zoom(graphRef.zoom() * factor, cameraDuration);
-			}
-		},
-		[cameraDuration, fgRef],
-	);
+			graphRef?.d3Force('charge')?.strength(CHARGE_STRENGTH);
+			graphRef?.d3Force('gravity', createGravityForce(GRAVITY_STRENGTH));
+		}, [fgRef, graph]);
 
-	const handleMouseMove = (event: MouseEvent<HTMLDivElement>): void => {
-		const bounds = event.currentTarget.getBoundingClientRect();
-		setPointer({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
-	};
+		const handleMouseMove = (event: MouseEvent<HTMLDivElement>): void => {
+			const bounds = event.currentTarget.getBoundingClientRect();
+			setPointer({
+				x: event.clientX - bounds.left,
+				y: event.clientY - bounds.top,
+			});
+		};
 
-	return (
-		<div
-			className={styles.canvas}
-			onMouseMove={handleMouseMove}
-			onMouseLeave={(): void => setHovered(undefined)}
-			data-testid="service-map-canvas"
-		>
-			<ForceGraph2D<ServiceMapNode, ServiceMapLink>
-				ref={fgRef}
-				graphData={graph}
-				width={width}
-				height={height}
-				backgroundColor={palette.background}
-				minZoom={MIN_ZOOM}
-				maxZoom={MAX_ZOOM}
-				warmupTicks={
-					prefersReducedMotion ? REDUCED_MOTION_WARMUP_TICKS : WARMUP_TICKS
-				}
-				cooldownTicks={prefersReducedMotion ? 0 : COOLDOWN_TICKS}
-				onEngineStop={handleEngineStop}
-				nodeCanvasObject={paintNode}
-				nodePointerAreaPaint={paintNodeArea}
-				linkCanvasObject={paintLink}
-				linkPointerAreaPaint={paintLinkArea}
-				nodeLabel={(): string => ''}
-				linkLabel={(): string => ''}
-				onNodeHover={(node): void =>
-					setHovered(node ? { kind: 'node', node } : undefined)
-				}
-				onLinkHover={(link): void =>
-					setHovered(link ? { kind: 'link', link } : undefined)
-				}
-				onNodeClick={(node): void => onNodeClick?.(node.id)}
-				onLinkClick={(link): void => onNodeClick?.(linkEndId(link.target))}
-				onBackgroundClick={onBackgroundClick}
-			/>
+		return (
+			// A focusable map region, like a slippy map: the arrow keys move a cursor across services.
+			<div
+				ref={ref}
+				className={cx(styles.canvas, { [styles.isUpdating]: isUpdating })}
+				onMouseMove={handleMouseMove}
+				onMouseLeave={(): void => setHovered(undefined)}
+				// eslint-disable-next-line jsx-a11y/prefer-tag-over-role
+				role="application"
+				aria-roledescription="service map"
+				aria-label={SERVICE_MAP_TEXT.canvasLabel}
+				// eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+				tabIndex={0}
+				data-testid="service-map-canvas"
+			>
+				<ForceGraph2D<ServiceMapNode, ServiceMapLink>
+					ref={fgRef}
+					graphData={graph}
+					width={width}
+					height={height}
+					backgroundColor={palette.background}
+					minZoom={MIN_ZOOM}
+					maxZoom={MAX_ZOOM}
+					warmupTicks={
+						prefersReducedMotion ? REDUCED_MOTION_WARMUP_TICKS : WARMUP_TICKS
+					}
+					cooldownTicks={prefersReducedMotion ? 0 : COOLDOWN_TICKS}
+					onEngineStop={handleEngineStop}
+					onRenderFramePre={resetLabels}
+					nodeCanvasObject={paintNode}
+					nodePointerAreaPaint={paintNodeArea}
+					linkCanvasObject={paintLink}
+					linkPointerAreaPaint={paintLinkArea}
+					nodeLabel={(): string => ''}
+					linkLabel={(): string => ''}
+					onNodeHover={(node): void =>
+						setHovered(node ? { kind: 'node', node } : undefined)
+					}
+					onLinkHover={(link): void =>
+						setHovered(link ? { kind: 'link', link } : undefined)
+					}
+					onZoom={(): void =>
+						setHovered((current) => (current ? undefined : current))
+					}
+					onNodeClick={(node): void => onNodeClick?.(node.id)}
+					onLinkClick={(link): void => onNodeClick?.(linkEndId(link.target))}
+				/>
 
-			{hovered && (
-				<CanvasTooltip x={pointer.x} y={pointer.y}>
-					{hovered.kind === 'node' ? (
-						<NodeTooltipContent node={hovered.node} />
-					) : (
-						<LinkTooltipContent
-							link={hovered.link}
-							source={linkEndId(hovered.link.source)}
-							target={linkEndId(hovered.link.target)}
-							isServerSide={nodesWithSpans.has(linkEndId(hovered.link.target))}
-						/>
-					)}
-				</CanvasTooltip>
-			)}
+				{hovered && (
+					<CanvasTooltip x={pointer.x} y={pointer.y}>
+						{hovered.kind === 'node' ? (
+							<NodeTooltipContent node={hovered.node} />
+						) : (
+							<LinkTooltipContent
+								link={hovered.link}
+								source={linkEndId(hovered.link.source)}
+								target={linkEndId(hovered.link.target)}
+								isServerSide={nodesWithSpans.has(linkEndId(hovered.link.target))}
+							/>
+						)}
+					</CanvasTooltip>
+				)}
 
-			<ZoomControls
-				onZoomIn={(): void => zoomBy(ZOOM_STEP)}
-				onZoomOut={(): void => zoomBy(1 / ZOOM_STEP)}
-				onFit={fitToView}
-			/>
-		</div>
-	);
-}
+				<ZoomControls
+					onZoomIn={(): void => zoomBy(ZOOM_STEP)}
+					onZoomOut={(): void => zoomBy(1 / ZOOM_STEP)}
+					onFit={fitToView}
+				/>
+			</div>
+		);
+	},
+);
 
 export default memo(ServiceMapCanvas);

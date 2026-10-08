@@ -210,12 +210,12 @@ describe('ServiceMap', () => {
 		await user.click(screen.getByTestId('service-map-panel-focus'));
 		await expect(
 			screen.findByTestId('service-map-focus-banner'),
-		).resolves.toHaveTextContent('Focused on cart · 4 of 4 services');
+		).resolves.toHaveTextContent('Focused on cart · 3 connected services');
 
 		await user.click(screen.getByTestId('service-map-focus-up'));
 		await expect(
 			screen.findByTestId('service-map-focus-banner'),
-		).resolves.toHaveTextContent('3 of 4 services');
+		).resolves.toHaveTextContent('2 connected services');
 
 		await user.click(screen.getByTestId('service-map-focus-list-toggle'));
 		expect(screen.getByTestId('service-map-focus-list')).toHaveTextContent(

@@ -1,4 +1,4 @@
-import { HEALTH_LABEL } from '../constants';
+import { getNodeHealthLabel } from '../utils/nodeHealthLabel';
 import type { ServiceMapNode } from '../types';
 import {
 	formatCount,
@@ -20,7 +20,7 @@ function NodeTooltipContent({ node }: NodeTooltipContentProps): JSX.Element {
 		<>
 			<div className={styles.title}>
 				<span>{node.id}</span>
-				<span>{HEALTH_LABEL[node.band]}</span>
+				<span>{getNodeHealthLabel(node)}</span>
 			</div>
 			{metrics ? (
 				<>

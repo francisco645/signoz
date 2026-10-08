@@ -45,15 +45,56 @@ describe('buildGraph', () => {
 		expect(nodes.find((node) => node.id === 'cart')?.band).toBe('degraded');
 	});
 
-	it('draws nodes without spans of their own as no data', () => {
+	it('tells databases and queues from services', () => {
 		const { nodes } = buildGraph(
-			[dependency('cart', 'redis', 500, 30)],
+			[
+				dependency('cart', 'redis', 500, 0),
+				dependency('cart', 'kafka', 500, 0),
+				dependency('web', 'cart', 500, 0),
+			],
 			[service('cart', 500, 0)],
 		);
 
+		expect(
+			Object.fromEntries(nodes.map((node) => [node.id, node.kind])),
+		).toStrictEqual({
+			cart: 'service',
+			kafka: 'queue',
+			redis: 'database',
+			web: 'service',
+		});
+	});
+
+	it('gives databases and queues the worst band of the calls into them', () => {
+		const { nodes } = buildGraph(
+			[
+				dependency('cart', 'redis', 500, 30),
+				dependency('geo', 'redis', 500, 0),
+				dependency('cart', 'kafka', 500, 2),
+			],
+			[service('cart', 500, 0), service('geo', 500, 0)],
+		);
+
 		expect(nodes.find((node) => node.id === 'redis')).toMatchObject({
-			band: 'noData',
+			kind: 'database',
+			band: 'critical',
 			metrics: undefined,
+		});
+		expect(nodes.find((node) => node.id === 'kafka')).toMatchObject({
+			kind: 'queue',
+			band: 'degraded',
+		});
+	});
+
+	it('draws client-only services without spans as no data', () => {
+		const { nodes } = buildGraph(
+			[dependency('cron', 'cart', 500, 0)],
+			[service('cart', 500, 0)],
+		);
+
+		expect(nodes.find((node) => node.id === 'cron')).toMatchObject({
+			kind: 'service',
+			band: 'noData',
 		});
 	});
 
@@ -95,6 +136,23 @@ describe('buildGraph', () => {
 			'critical',
 			'lowTraffic',
 			'healthy',
+		]);
+	});
+
+	it('colours a link with the worse of its own health and its target', () => {
+		const { links } = buildGraph(
+			[
+				dependency('gateway', 'cart', 1000, 0),
+				dependency('cart', 'redis', 1000, 2),
+			],
+			[service('gateway', 1000, 0), service('cart', 1000, 7)],
+		);
+
+		expect(
+			links.map((link) => [link.target, link.band, link.colorBand]),
+		).toStrictEqual([
+			['redis', 'degraded', 'degraded'],
+			['cart', 'healthy', 'critical'],
 		]);
 	});
 

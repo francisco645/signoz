@@ -36,7 +36,14 @@
 	border-radius: var(--radius-2);
 	background: var(--l1-background);
 	color: var(--l1-foreground);
-	font-family: var(--font-family-sf-mono);
+	font-family: var(--periscope-font-family-mono);
 	font-size: var(--periscope-font-size-small);
 	white-space: pre-wrap;
+}
+
+.toggles {
+	:global(button:focus-visible) {
+		outline: 2px solid var(--accent-primary);
+		outline-offset: 1px;
+	}
 }

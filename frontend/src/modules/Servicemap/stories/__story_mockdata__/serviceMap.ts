@@ -127,6 +127,15 @@ const DEPENDENCIES: Dependency[] = [
 		cluster: 'prod-us-east',
 	},
 	{
+		parent: 'checkout',
+		child: 'kafka',
+		callCount: 3100,
+		callRate: 5.2,
+		p99: 12_000_000,
+		environment: 'production',
+		cluster: 'prod-us-east',
+	},
+	{
 		parent: 'payments',
 		child: 'stripe-proxy',
 		callCount: 5100,
@@ -317,7 +326,16 @@ export const dependencyGraphResponse = ({
 				}));
 
 /** Databases and caches have no spans of their own, so `/services` never lists them. */
-const DATA_STORES = ['mysql', 'redis'];
+const DATA_STORES = ['mysql', 'redis', 'kafka'];
+
+/** Yesterday's window: fewer errors and faster, so today's deltas have something to show. */
+const YESTERDAY = { calls: 1.05, errors: 0.25, p99: 0.7 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** `/services` is asked for the same window a day earlier when the panel opens. */
+export const isYesterdayWindow = (startNs?: string): boolean =>
+	!!startNs && Number(startNs) / 1e6 < Date.now() - DAY_MS / 2;
 
 /**
  * RED per service, as `/api/v2/services` reports it: what the callers saw on the
@@ -325,38 +343,48 @@ const DATA_STORES = ['mysql', 'redis'];
  */
 export const servicesResponse = (
 	options: DependencyGraphOptions,
+	isYesterday = false,
 ): { status: string; data: ServicesList[] } => {
 	const dependencies = dependencyGraphResponse(options);
 	const totals = new Map<
 		string,
-		{ calls: number; errors: number; p99: number }
+		{ calls: number; errors: number; rate: number; p99: number }
 	>();
 
-	dependencies.forEach(({ parent, child, callCount, errorRate, p99 }) => {
-		const callee = totals.get(child) ?? { calls: 0, errors: 0, p99: 0 };
-		callee.calls += callCount;
-		callee.errors += (callCount * errorRate) / 100;
-		callee.p99 = Math.max(callee.p99, p99);
-		totals.set(child, callee);
+	dependencies.forEach(
+		({ parent, child, callCount, callRate, errorRate, p99 }) => {
+			const callee = totals.get(child) ?? { calls: 0, errors: 0, rate: 0, p99: 0 };
+			callee.calls += callCount;
+			callee.rate += callRate;
+			callee.errors += (callCount * errorRate) / 100;
+			callee.p99 = Math.max(callee.p99, p99);
+			totals.set(child, callee);
 
-		if (!totals.has(parent)) {
-			totals.set(parent, { calls: callCount, errors: 0, p99 });
-		}
-	});
+			if (!totals.has(parent)) {
+				totals.set(parent, { calls: callCount, errors: 0, rate: callRate, p99 });
+			}
+		},
+	);
+
+	const scale = isYesterday ? YESTERDAY : { calls: 1, errors: 1, p99: 1 };
 
 	return {
 		status: 'success',
 		data: [...totals.entries()]
 			.filter(([serviceName]) => !DATA_STORES.includes(serviceName))
-			.map(([serviceName, { calls, errors, p99 }]) => ({
-				serviceName,
-				numCalls: calls,
-				numErrors: Math.round(errors),
-				errorRate: calls > 0 ? (errors / calls) * 100 : 0,
-				callRate: calls / 1800,
-				p99,
-				avgDuration: p99 / 3,
-			})),
+			.map(([serviceName, { calls, errors, rate, p99 }]) => {
+				const numCalls = Math.round(calls * scale.calls);
+				const numErrors = Math.round(errors * scale.errors);
+				return {
+					serviceName,
+					numCalls,
+					numErrors,
+					errorRate: numCalls > 0 ? (numErrors / numCalls) * 100 : 0,
+					callRate: rate * scale.calls,
+					p99: p99 * scale.p99,
+					avgDuration: (p99 * scale.p99) / 3,
+				};
+			}),
 	};
 };
 

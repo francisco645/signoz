@@ -29,6 +29,7 @@ import {
 	resourceFilterQueries,
 	SERVICE_HEALTH,
 	type ServiceHealth,
+	isYesterdayWindow,
 	servicesResponse,
 	TOPOLOGIES,
 	type Topology,
@@ -38,6 +39,7 @@ const GRAPH = 'Service map · graph';
 const FILTERS = 'Service map · filters';
 
 interface DependencyGraphBody {
+	start?: string;
 	tags?: Tags[];
 }
 
@@ -91,6 +93,12 @@ export const serviceMapMocks = defineStoryMocks({
 			value: 3,
 			max: 5,
 		}),
+		serviceMetrics: toggleControl('Service metrics available', {
+			group: GRAPH,
+			description:
+				'Off fails `/api/v2/services` while the graph loads: edges stay accurate, node health is unknown.',
+			value: true,
+		}),
 		resourceAttributes: toggleControl('Resource attributes ingested', {
 			group: FILTERS,
 			description:
@@ -113,19 +121,26 @@ export const serviceMapMocks = defineStoryMocks({
 			}),
 		),
 
-		rest.post(
-			'http://localhost/api/v2/services',
-			response.json(async (req) => {
-				const body = (await req.json()) as DependencyGraphBody;
+		values.serviceMetrics
+			? rest.post(
+					'http://localhost/api/v2/services',
+					response.json(async (req) => {
+						const body = (await req.json()) as DependencyGraphBody;
 
-				return servicesResponse({
-					topology: values.topology,
-					count: values.services,
-					health: values.health,
-					tags: body.tags,
-				});
-			}),
-		),
+						return servicesResponse(
+							{
+								topology: values.topology,
+								count: values.services,
+								health: values.health,
+								tags: body.tags,
+							},
+							isYesterdayWindow(body.start),
+						);
+					}),
+				)
+			: rest.post('http://localhost/api/v2/services', (_req, res, ctx) =>
+					res(ctx.status(500), ctx.json({ status: 'error' })),
+				),
 
 		rest.get(
 			'http://localhost/api/v3/autocomplete/attribute_keys',

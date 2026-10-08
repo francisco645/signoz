@@ -83,6 +83,21 @@ export const IgnoredFilters: Story = {
 	args: { filters: ['environment', 'service'] },
 };
 
+/** First load in flight: the spinner, with the filters already usable. */
+export const Loading: Story = {
+	args: { dataState: 'loading' },
+};
+
+/** The dependency graph request failed before anything was drawn. */
+export const LoadError: Story = {
+	args: { dataState: 'error' },
+};
+
+/** The graph loaded but `/services` failed: edges stay, node health is unknown. */
+export const ServiceMetricsUnavailable: Story = {
+	args: { serviceMetrics: false },
+};
+
 /** A workspace with no dependencies recorded in the selected time range. */
 export const NoServices: Story = {
 	args: { services: 0 },

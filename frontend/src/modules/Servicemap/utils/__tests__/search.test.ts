@@ -4,6 +4,7 @@ import { searchNodes } from '../search';
 const node = (id: string, band: HealthBand): ServiceMapNode => ({
 	id,
 	band,
+	kind: 'service',
 	incoming: { callCount: 0, errorCount: 0, callRate: 0, errorRate: 0 },
 });
 

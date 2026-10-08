@@ -38,3 +38,17 @@ export const formatDelta = (value: number, unit: 'pct' | 'pp'): string => {
 		? `${sign}${value.toFixed(1)} pp`
 		: `${sign}${Math.round(value)}%`;
 };
+
+/** Which way of change is bad news for a metric. */
+export type DeltaPolarity = 'higherIsWorse' | 'bothAreWorse';
+
+/** A traffic change this large either way is worth a look: a drop is how an outage shows up. */
+export const TRAFFIC_ALERT_CHANGE = 50;
+
+export const isWorseChange = (
+	value: number,
+	polarity: DeltaPolarity,
+): boolean =>
+	polarity === 'bothAreWorse'
+		? Math.abs(value) >= TRAFFIC_ALERT_CHANGE
+		: value > 0;

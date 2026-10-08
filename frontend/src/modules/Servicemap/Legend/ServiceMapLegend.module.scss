@@ -16,6 +16,13 @@
 	line-height: var(--line-height-18);
 }
 
+.header {
+	display: flex;
+	gap: var(--spacing-4);
+	align-items: center;
+	justify-content: space-between;
+}
+
 .title {
 	color: var(--l1-foreground);
 	font-weight: var(--font-weight-medium);
@@ -35,8 +42,14 @@
 
 .swatch {
 	flex-shrink: 0;
-	width: var(--spacing-10);
-	height: var(--spacing-10);
+	width: 1.75rem;
+	height: 1.75rem;
+}
+
+.swatchCompact {
+	flex-shrink: 0;
+	width: var(--spacing-8);
+	height: var(--spacing-8);
 }
 
 .footer {

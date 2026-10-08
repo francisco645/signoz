@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { getNodeHealthLabel } from '../utils/nodeHealthLabel';
 import { Button } from '@signozhq/ui/button';
 import type { ServicesList } from 'types/api/metrics/getService';
 
 import { MAX_NEIGHBOUR_ROWS, SERVICE_MAP_TEXT } from '../constants';
 import LegendSwatch from '../Legend/LegendSwatch';
+import type { ServiceMapNode } from '../types';
 import { getServiceDeltas } from '../utils/delta';
 import { formatDuration, formatPercent, formatRate } from '../utils/format';
 import { NeighbourDirection, NeighbourRow } from '../utils/neighbours';
@@ -14,14 +16,20 @@ import styles from './ServiceNodePanel.module.scss';
 interface NeighbourListProps {
 	direction: NeighbourDirection;
 	rows: NeighbourRow[];
+	nodes: ReadonlyMap<string, ServiceMapNode>;
 	services: ReadonlyMap<string, ServicesList>;
 	yesterday: ReadonlyMap<string, ServicesList>;
 	onSelect: (id: string) => void;
 }
 
+/**
+ * Each row keeps two things apart: the neighbour itself (its symbol, health and
+ * change since yesterday, as on the map) and the call between the two services.
+ */
 function NeighbourList({
 	direction,
 	rows,
+	nodes,
 	services,
 	yesterday,
 	onSelect,
@@ -46,10 +54,14 @@ function NeighbourList({
 				</div>
 			)}
 			{visible.map((row) => {
+				const node = nodes.get(row.id);
 				const deltas = getServiceDeltas(
 					services.get(row.id),
 					yesterday.get(row.id),
 				);
+				const hasDeltas =
+					deltas.errorRate !== undefined || deltas.p99 !== undefined;
+				const health = node ? getNodeHealthLabel(node) : '';
 				return (
 					<button
 						key={row.id}
@@ -58,18 +70,25 @@ function NeighbourList({
 						onClick={(): void => onSelect(row.id)}
 						data-testid={`service-map-neighbour-${direction}-${row.id}`}
 					>
-						<LegendSwatch band={row.band} />
-						<span className={styles.rowName} title={row.id}>
-							{row.id}
-						</span>
-						<span className={styles.rowMetric}>{formatRate(row.callRate)}</span>
-						<span className={styles.rowMetric}>
-							{formatPercent(row.errorRate)}
-							<DeltaIndicator value={deltas.errorRate} unit="pp" />
-						</span>
-						<span className={styles.rowMetric}>
-							{`${formatDuration(row.p99)}*`}
-							<DeltaIndicator value={deltas.p99} unit="pct" />
+						<LegendSwatch
+							band={node?.band ?? 'noData'}
+							kind={node?.kind ?? 'service'}
+						/>
+						<span className={styles.rowBody}>
+							<span className={styles.rowName} title={row.id}>
+								{row.id}
+								<span className={styles.srOnly}>{`, ${health}`}</span>
+							</span>
+							<span className={styles.rowMetric}>
+								{`${SERVICE_MAP_TEXT.panelCall}: ${formatRate(row.callRate)} · ${formatPercent(row.errorRate)} errors · p99 ${formatDuration(row.p99)}*`}
+							</span>
+							{hasDeltas && (
+								<span className={styles.rowMetric}>
+									<span>{`${SERVICE_MAP_TEXT.panelVsYesterdayShort}:`}</span>
+									<DeltaIndicator value={deltas.errorRate} unit="pp" />
+									<DeltaIndicator value={deltas.p99} unit="pct" />
+								</span>
+							)}
 						</span>
 					</button>
 				);

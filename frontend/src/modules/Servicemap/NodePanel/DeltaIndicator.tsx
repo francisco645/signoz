@@ -1,40 +1,42 @@
 import cx from 'classnames';
 
-import { formatDelta } from '../utils/delta';
+import { DeltaPolarity, formatDelta, isWorseChange } from '../utils/delta';
 
 import styles from './ServiceNodePanel.module.scss';
 
 interface DeltaIndicatorProps {
 	value?: number;
 	unit: 'pct' | 'pp';
+	/** Errors and latency are worse going up; traffic is worth a look either way. */
+	polarity?: DeltaPolarity;
 	testId?: string;
 }
 
-/**
- * Up is worse for every metric the map shows, so a rise is red and a drop is
- * muted rather than green.
- */
+/** Bad news is red; everything else stays muted, never green. */
 function DeltaIndicator({
 	value,
 	unit,
+	polarity = 'higherIsWorse',
 	testId,
 }: DeltaIndicatorProps): JSX.Element | null {
 	if (value === undefined || !Number.isFinite(value)) {
 		return null;
 	}
-	const isWorse = value > 0;
 	const isUnchanged = Math.abs(value) < 0.05;
+	const isWorse = !isUnchanged && isWorseChange(value, polarity);
+	let text = formatDelta(0, unit);
+	if (!isUnchanged) {
+		text = `${value > 0 ? '▲' : '▼'} ${formatDelta(value, unit)}`;
+	}
 	return (
 		<span
 			className={cx(styles.delta, {
-				[styles.isWorse]: isWorse && !isUnchanged,
-				[styles.isBetter]: !isWorse || isUnchanged,
+				[styles.isWorse]: isWorse,
+				[styles.isBetter]: !isWorse,
 			})}
 			data-testid={testId}
 		>
-			{isUnchanged
-				? formatDelta(0, unit)
-				: `${isWorse ? '▲' : '▼'} ${formatDelta(value, unit)}`}
+			{text}
 		</span>
 	);
 }

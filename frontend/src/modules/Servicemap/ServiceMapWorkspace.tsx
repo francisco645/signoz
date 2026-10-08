@@ -6,7 +6,6 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from '@signozhq/ui/resizable';
-import cx from 'classnames';
 import { IResourceAttribute } from 'hooks/useResourceAttribute/types';
 import type { ServicesList } from 'types/api/metrics/getService';
 
@@ -23,6 +22,7 @@ import {
 import FocusBanner from './Focus/FocusBanner';
 import { useContainerSize } from './hooks/useContainerSize';
 import { useServiceMapInteractions } from './hooks/useServiceMapInteractions';
+import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import { useYesterdayServices } from './hooks/useYesterdayServices';
 import ServiceMapLegend from './Legend/ServiceMapLegend';
 import ServiceNodePanel from './NodePanel/ServiceNodePanel';
@@ -54,6 +54,8 @@ function ServiceMapWorkspace({
 }: ServiceMapWorkspaceProps): JSX.Element {
 	const fgRef: ServiceMapGraphRef = useRef();
 	const searchRef = useRef<HTMLInputElement>(null);
+	const canvasRef = useRef<HTMLDivElement>(null);
+	const prefersReducedMotion = usePrefersReducedMotion();
 	const [canvasArea, setCanvasArea] = useState<HTMLDivElement | null>(null);
 	const [legend, setLegend] = useState<HTMLElement | null>(null);
 	const { width, height } = useContainerSize(canvasArea);
@@ -62,17 +64,21 @@ function ServiceMapWorkspace({
 	const bannerSize = useContainerSize(banner);
 	const {
 		selected,
+		cursorId,
 		focusRoot,
 		focusDirection,
+		focusDepth,
 		focusSet,
 		announcement,
 		select,
 		clickNode,
 		toggleFocus,
 		setFocusDirection,
+		setFocusDepth,
 		exitFocus,
+		closePanel,
 		handleKeyDown,
-	} = useServiceMapInteractions(graph, searchRef);
+	} = useServiceMapInteractions(graph, searchRef, canvasRef);
 	const yesterday = useYesterdayServices(minTime, maxTime, queries, !!selected);
 
 	const insets = useMemo(
@@ -94,112 +100,125 @@ function ServiceMapWorkspace({
 			select(id);
 			const node = graph.nodes.find((candidate) => candidate.id === id);
 			if (node?.x !== undefined && node.y !== undefined) {
-				fgRef.current?.centerAt(node.x, node.y, CAMERA_DURATION_MS);
 				if (zoom) {
-					fgRef.current?.zoom(zoom, CAMERA_DURATION_MS);
+					fgRef.current?.zoom(zoom, 0);
 				}
+				fgRef.current?.centerAt(
+					node.x,
+					node.y,
+					prefersReducedMotion ? 0 : CAMERA_DURATION_MS,
+				);
 			}
 		},
-		[graph.nodes, select],
+		[graph.nodes, prefersReducedMotion, select],
 	);
 
 	return (
-		<ResizablePanelGroup
-			className={styles.workspace}
-			orientation="horizontal"
-			id="service-map-workspace"
-			testId="service-map-workspace"
-		>
-			<ResizablePanel id="service-map-canvas-slot" minSize="30%">
-				{/* Shortcuts are scoped to the map; the handler ignores typing in inputs. */}
-				{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-				<div
-					ref={setCanvasArea}
-					className={cx(styles.canvasArea, { [styles.isUpdating]: isFetching })}
-					onKeyDown={handleKeyDown}
-				>
-					<div className={styles.toolbar}>
-						<ServiceSearch
-							ref={searchRef}
-							nodes={graph.nodes}
-							onSelect={(id): void => selectAndCenter(id, SEARCH_ZOOM)}
-						/>
-						<CopyLinkButton minTime={minTime} maxTime={maxTime} />
-						{isFetching && (
-							<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
+		// Shortcuts cover the canvas and the panel; the handler ignores typing in inputs.
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+		<div className={styles.workspace} onKeyDown={handleKeyDown}>
+			<ResizablePanelGroup
+				orientation="horizontal"
+				id="service-map-workspace"
+				testId="service-map-workspace"
+			>
+				<ResizablePanel id="service-map-canvas-slot" minSize="30%">
+					<div ref={setCanvasArea} className={styles.canvasArea}>
+						<div className={styles.toolbar}>
+							<ServiceSearch
+								ref={searchRef}
+								nodes={graph.nodes}
+								onSelect={(id): void => {
+									selectAndCenter(id, SEARCH_ZOOM);
+									canvasRef.current?.focus({ preventScroll: true });
+								}}
+								onDismiss={(): void =>
+									canvasRef.current?.focus({ preventScroll: true })
+								}
+							/>
+							<CopyLinkButton minTime={minTime} maxTime={maxTime} />
+							{isFetching && (
+								<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
+							)}
+						</div>
+						{focusRoot && focusSet && (
+							<FocusBanner
+								ref={setBanner}
+								root={focusRoot}
+								direction={focusDirection}
+								focusSet={focusSet}
+								depth={focusDepth}
+								isDataStore={
+									!graph.nodes.find((node) => node.id === focusRoot)?.metrics
+								}
+								onDirectionChange={setFocusDirection}
+								onDepthChange={setFocusDepth}
+								onExit={exitFocus}
+							/>
 						)}
-					</div>
-					{focusRoot && focusSet && (
-						<FocusBanner
-							ref={setBanner}
-							root={focusRoot}
-							direction={focusDirection}
-							focusSet={focusSet}
-							total={graph.nodes.length}
-							isDataStore={!graph.nodes.find((node) => node.id === focusRoot)?.metrics}
-							onDirectionChange={setFocusDirection}
-							onExit={exitFocus}
-						/>
-					)}
-					<ServiceMapCanvas
-						fgRef={fgRef}
-						graph={graph}
-						width={width}
-						height={height}
-						insets={insets}
-						selectedId={selected ?? undefined}
-						highlighted={highlighted}
-						onNodeClick={clickNode}
-					/>
-					<ServiceMapLegend ref={setLegend} />
-					<div className={styles.srOnly} aria-live="polite">
-						{announcement}
-					</div>
-				</div>
-			</ResizablePanel>
-			{selected && (
-				<>
-					<ResizableHandle withHandle />
-					<ResizablePanel
-						id="service-map-panel-slot"
-						defaultSize={PANEL_SIZE.default}
-						minSize={PANEL_SIZE.min}
-						maxSize={PANEL_SIZE.max}
-					>
-						<ServiceNodePanel
-							id={selected}
+						<ServiceMapCanvas
+							ref={canvasRef}
+							fgRef={fgRef}
+							isUpdating={isFetching}
+							cursorId={cursorId}
 							graph={graph}
-							services={services}
-							yesterday={yesterday}
-							queries={queries}
-							scopeLabels={scopeLabels}
-							minTime={minTime}
-							maxTime={maxTime}
-							actions={[
-								{
-									key: 'focus',
-									component: (
-										<Button
-											variant={focusRoot === selected ? 'solid' : 'ghost'}
-											color="secondary"
-											size="sm"
-											prefix={<Focus />}
-											onClick={toggleFocus}
-											aria-pressed={focusRoot === selected}
-											testId="service-map-panel-focus"
-										>
-											{`${SERVICE_MAP_TEXT.focus} (F)`}
-										</Button>
-									),
-								},
-							]}
-							onSelect={(id): void => selectAndCenter(id)}
-							onClose={(): void => select(null)}
+							width={width}
+							height={height}
+							insets={insets}
+							selectedId={selected ?? undefined}
+							highlighted={highlighted}
+							onNodeClick={clickNode}
 						/>
-					</ResizablePanel>
-				</>
-			)}
-		</ResizablePanelGroup>
+						<ServiceMapLegend ref={setLegend} />
+						<div className={styles.srOnly} aria-live="polite">
+							{announcement}
+						</div>
+					</div>
+				</ResizablePanel>
+				{selected && (
+					<>
+						<ResizableHandle withHandle className={styles.handle} />
+						<ResizablePanel
+							id="service-map-panel-slot"
+							defaultSize={PANEL_SIZE.default}
+							minSize={PANEL_SIZE.min}
+							maxSize={PANEL_SIZE.max}
+						>
+							<ServiceNodePanel
+								id={selected}
+								graph={graph}
+								services={services}
+								yesterday={yesterday}
+								queries={queries}
+								scopeLabels={scopeLabels}
+								minTime={minTime}
+								maxTime={maxTime}
+								actions={[
+									{
+										key: 'focus',
+										component: (
+											<Button
+												variant={focusRoot === selected ? 'solid' : 'ghost'}
+												color="secondary"
+												size="sm"
+												prefix={<Focus />}
+												onClick={toggleFocus}
+												aria-pressed={focusRoot === selected}
+												testId="service-map-panel-focus"
+											>
+												{`${SERVICE_MAP_TEXT.focus} (F)`}
+											</Button>
+										),
+									},
+								]}
+								onSelect={(id): void => selectAndCenter(id)}
+								onClose={closePanel}
+							/>
+						</ResizablePanel>
+					</>
+				)}
+			</ResizablePanelGroup>
+		</div>
 	);
 }
 
