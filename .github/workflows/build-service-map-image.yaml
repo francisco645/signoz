@@ -1,0 +1,77 @@
+# Builds the SigNoz image with the Service Map changes for validation on a test server.
+# Not meant for upstream: it lives on the fork's validation branch only.
+name: build-service-map-image
+
+on:
+  push:
+    branches: [validation/service-map]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: build backend
+        run: |
+          VERSION="service-map-${GITHUB_SHA::7}"
+          go build -C ./cmd/enterprise -tags timetzdata \
+            -o "$GITHUB_WORKSPACE/target/linux-amd64/signoz" \
+            -ldflags "-s -w \
+              -X github.com/SigNoz/signoz/pkg/version.version=$VERSION \
+              -X github.com/SigNoz/signoz/pkg/version.variant=enterprise \
+              -X github.com/SigNoz/signoz/pkg/version.hash=${GITHUB_SHA::7} \
+              -X github.com/SigNoz/signoz/pkg/version.time=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+              -X github.com/SigNoz/signoz/pkg/version.branch=$GITHUB_REF_NAME \
+              -X github.com/SigNoz/signoz/ee/zeus.url=https://api.signoz.cloud \
+              -X github.com/SigNoz/signoz/ee/zeus.deprecatedURL=https://license.signoz.io"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/signoz
+          tags: |
+            type=raw,value=service-map
+            type=sha,prefix=service-map-
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: cmd/enterprise/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
