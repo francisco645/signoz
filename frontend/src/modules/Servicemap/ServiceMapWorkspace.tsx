@@ -26,6 +26,7 @@ import { useServiceMapInteractions } from './hooks/useServiceMapInteractions';
 import { useYesterdayServices } from './hooks/useYesterdayServices';
 import ServiceMapLegend from './Legend/ServiceMapLegend';
 import ServiceNodePanel from './NodePanel/ServiceNodePanel';
+import CopyLinkButton from './Toolbar/CopyLinkButton';
 import ServiceSearch from './Toolbar/ServiceSearch';
 import type { ServiceMapGraph } from './types';
 
@@ -123,6 +124,7 @@ function ServiceMapWorkspace({
 							nodes={graph.nodes}
 							onSelect={(id): void => selectAndCenter(id, SEARCH_ZOOM)}
 						/>
+						<CopyLinkButton minTime={minTime} maxTime={maxTime} />
 						{isFetching && (
 							<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
 						)}

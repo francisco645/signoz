@@ -170,6 +170,11 @@ export const SERVICE_MAP_TEXT = {
 		callers: number,
 		callees: number,
 	): string => `${id}, ${health}, ${callers} callers, ${callees} callees`,
+	copyLink: 'Copy link',
+	copyLinkHint:
+		'Copy a link with the absolute time range, the selected service and the focus.',
+	copyLinkDone: (window: string): string =>
+		`Link copied with absolute time (${window}).`,
 	zoomIn: 'Zoom in',
 	zoomOut: 'Zoom out',
 	zoomFit: 'Fit to screen',
