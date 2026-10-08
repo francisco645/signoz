@@ -20,6 +20,7 @@ import {
 	TOOLBAR_HEIGHT_PX,
 } from './constants';
 import FocusBanner from './Focus/FocusBanner';
+import { useAnimateDirection } from './hooks/useAnimateDirection';
 import { useContainerSize } from './hooks/useContainerSize';
 import { useServiceMapInteractions } from './hooks/useServiceMapInteractions';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
@@ -79,6 +80,7 @@ function ServiceMapWorkspace({
 		closePanel,
 		handleKeyDown,
 	} = useServiceMapInteractions(graph, searchRef, canvasRef);
+	const animateDirection = useAnimateDirection();
 	const yesterday = useYesterdayServices(minTime, maxTime, queries, !!selected);
 
 	const insets = useMemo(
@@ -160,6 +162,7 @@ function ServiceMapWorkspace({
 							ref={canvasRef}
 							fgRef={fgRef}
 							isUpdating={isFetching}
+							isFlowEnabled={animateDirection.isEnabled}
 							cursorId={cursorId}
 							graph={graph}
 							width={width}
@@ -169,7 +172,7 @@ function ServiceMapWorkspace({
 							highlighted={highlighted}
 							onNodeClick={clickNode}
 						/>
-						<ServiceMapLegend ref={setLegend} />
+						<ServiceMapLegend ref={setLegend} animateDirection={animateDirection} />
 						<div className={styles.srOnly} aria-live="polite">
 							{announcement}
 						</div>

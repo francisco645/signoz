@@ -25,6 +25,23 @@ export const SEARCH_ZOOM = 2;
 /** Search bar over the canvas, kept clear when fitting the graph. */
 export const TOOLBAR_HEIGHT_PX = 48;
 
+/**
+ * Particles running along every edge, caller to callee, as the map always had.
+ * More calls mean more and faster particles, on a log scale of req/s.
+ */
+export const PARTICLES = {
+	maxPerEdge: 4,
+	/** Canvas units per frame, at no traffic and at `fastRate` or more. */
+	minSpeed: 1,
+	maxSpeed: 4,
+	/** req/s that reaches `maxSpeed`. */
+	fastRate: 1_000,
+	/** Wider than the edge, so they read on top of it. */
+	extraWidth: 3,
+	/** Past this many edges only the highlighted ones move, to keep the map responsive. */
+	maxEdges: 300,
+} as const;
+
 export const CHARGE_STRENGTH = -400;
 /** Pull towards the centre that keeps unconnected groups of services in view. */
 export const GRAVITY_STRENGTH = 0.06;
@@ -215,6 +232,11 @@ export const SERVICE_MAP_TEXT = {
 		'Copy a link with the absolute time range, the selected service and the focus.',
 	copyLinkDone: (window: string): string =>
 		`Link copied with absolute time (${window}).`,
+	flowSwitch: 'Animate call direction',
+	flowHelp:
+		'Particles run caller → callee; more calls, more and faster particles. Averaged over the time range.',
+	flowReducedMotion:
+		'Off because your system is set to reduce motion. Arrows still show caller → callee.',
 	zoomIn: 'Zoom in',
 	zoomOut: 'Zoom out',
 	zoomFit: 'Fit to screen',

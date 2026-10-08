@@ -72,3 +72,15 @@
 	color: var(--l1-foreground);
 	font-weight: var(--font-weight-medium);
 }
+
+.flow {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-2);
+	padding-top: var(--spacing-3);
+	border-top: 1px solid var(--l2-border);
+}
+
+.flowHelp {
+	color: var(--l2-foreground);
+}

@@ -14,9 +14,11 @@ import {
 	DEGRADED_ERROR_RATE,
 	SERVICE_MAP_TEXT,
 } from '../constants';
+import type { AnimateDirection } from '../hooks/useAnimateDirection';
 import { useLegendCollapsed } from '../hooks/useLegendCollapsed';
 import type { HealthBand } from '../types';
 import BlindSpotPopover from './BlindSpotPopover';
+import FlowSwitch from './FlowSwitch';
 import LegendSwatch from './LegendSwatch';
 
 import styles from './ServiceMapLegend.module.scss';
@@ -40,8 +42,12 @@ const KIND_ITEMS = [
 ] as const;
 
 /** Always on screen; collapsing keeps the error bands in a single line. */
-const ServiceMapLegend = forwardRef<HTMLElement>(
-	function ServiceMapLegend(_props, ref): JSX.Element {
+interface ServiceMapLegendProps {
+	animateDirection: AnimateDirection;
+}
+
+const ServiceMapLegend = forwardRef<HTMLElement, ServiceMapLegendProps>(
+	function ServiceMapLegend({ animateDirection }, ref): JSX.Element {
 		const [isCollapsed, toggle] = useLegendCollapsed();
 		const bands = isCollapsed ? ITEMS.slice(0, 3) : ITEMS;
 
@@ -93,6 +99,11 @@ const ServiceMapLegend = forwardRef<HTMLElement>(
 						<div>{SERVICE_MAP_TEXT.legendColorNote}</div>
 						<div>{SERVICE_MAP_TEXT.legendCallGlyphs}</div>
 						<div>{SERVICE_MAP_TEXT.legendEdges}</div>
+						<FlowSwitch
+							isPreferred={animateDirection.isPreferred}
+							isBlockedByReducedMotion={animateDirection.isBlockedByReducedMotion}
+							onChange={animateDirection.setPreferred}
+						/>
 						<div className={styles.footer}>
 							<Info size={12} />
 							{SERVICE_MAP_TEXT.legendMissingEdges}

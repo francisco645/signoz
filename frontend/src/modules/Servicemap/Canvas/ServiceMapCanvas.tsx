@@ -28,6 +28,7 @@ import {
 	useCanvasPainters,
 } from '../hooks/useCanvasPainters';
 import { useGraphCamera } from '../hooks/useGraphCamera';
+import { useLinkParticles } from '../hooks/useLinkParticles';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import type { ServiceMapGraph, ServiceMapLink, ServiceMapNode } from '../types';
 import { buildAdjacency, linkEndId } from '../utils/adjacency';
@@ -59,6 +60,8 @@ interface ServiceMapCanvasProps {
 	highlighted?: ReadonlySet<string>;
 	/** A refresh is in flight: the graph is drawn faded, overlays are not. */
 	isUpdating: boolean;
+	/** Particles run along the edges, caller to callee. */
+	isFlowEnabled: boolean;
 	onNodeClick?: (id: string) => void;
 }
 
@@ -82,6 +85,7 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 			cursorId,
 			highlighted,
 			isUpdating,
+			isFlowEnabled,
 			onNodeClick,
 		},
 		ref,
@@ -107,16 +111,27 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 			[graph.links],
 		);
 
+		const hoveredId = hovered?.kind === 'node' ? hovered.node.id : undefined;
+
 		const { resetLabels, paintNode, paintNodeArea, paintLink, paintLinkArea } =
 			useCanvasPainters({
 				palette,
 				adjacency,
-				hoveredId: hovered?.kind === 'node' ? hovered.node.id : undefined,
+				hoveredId,
 				selectedId,
 				cursorId,
 				highlighted,
 				alertingTargets,
 			});
+
+		const particles = useLinkParticles({
+			fgRef,
+			links: graph.links,
+			isEnabled: isFlowEnabled,
+			activeId: hoveredId ?? selectedId,
+			highlighted,
+			palette,
+		});
 
 		const { fitToView, zoomBy, handleEngineStop } = useGraphCamera({
 			fgRef,
@@ -175,6 +190,7 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 					nodePointerAreaPaint={paintNodeArea}
 					linkCanvasObject={paintLink}
 					linkPointerAreaPaint={paintLinkArea}
+					{...particles}
 					nodeLabel={(): string => ''}
 					linkLabel={(): string => ''}
 					onNodeHover={(node): void =>
