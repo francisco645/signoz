@@ -1,4 +1,4 @@
-import { HEALTH_LABEL, SERVICE_MAP_TEXT } from '../constants';
+import { SERVICE_MAP_TEXT } from '../constants';
 import LegendSwatch from '../Legend/LegendSwatch';
 import type { ServiceMapNode } from '../types';
 import type { ServiceDeltas } from '../utils/delta';
@@ -9,6 +9,7 @@ import {
 	formatRate,
 } from '../utils/format';
 import DeltaIndicator from './DeltaIndicator';
+import { getHealthLine } from './healthLine';
 
 import styles from './ServiceNodePanel.module.scss';
 
@@ -28,12 +29,8 @@ function HealthSummary({
 	return (
 		<>
 			<div className={styles.health} data-testid="service-map-panel-health">
-				<LegendSwatch band={node.band} />
-				<span>
-					{metrics
-						? `${HEALTH_LABEL[node.band]} · ${formatPercent(metrics.errorRate)} errors`
-						: HEALTH_LABEL[node.band]}
-				</span>
+				<LegendSwatch band={node.band} kind={node.kind} />
+				<span>{getHealthLine(node)}</span>
 			</div>
 
 			{metrics ? (
@@ -43,7 +40,11 @@ function HealthSummary({
 						{formatRate(metrics.callRate)}
 						<div className={styles.sub}>{formatCount(metrics.callCount)} calls</div>
 					</span>
-					<DeltaIndicator value={deltas.callRate} unit="pct" />
+					<DeltaIndicator
+						value={deltas.callRate}
+						unit="pct"
+						polarity="bothAreWorse"
+					/>
 
 					<span className={styles.label}>{SERVICE_MAP_TEXT.panelErrorRate}</span>
 					<span className={styles.value}>
@@ -63,7 +64,11 @@ function HealthSummary({
 					<DeltaIndicator value={deltas.p99} unit="pct" />
 				</div>
 			) : (
-				<div className={styles.note}>{SERVICE_MAP_TEXT.panelNoServerData}</div>
+				<div className={styles.note}>
+					{node.kind === 'service'
+						? SERVICE_MAP_TEXT.panelNoServerData
+						: SERVICE_MAP_TEXT.panelDataStoreNote}
+				</div>
 			)}
 
 			{metrics && (

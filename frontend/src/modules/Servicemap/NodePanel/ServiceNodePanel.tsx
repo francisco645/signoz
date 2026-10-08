@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from 'react';
+import { Info } from '@signozhq/icons';
 import { Badge } from '@signozhq/ui/badge';
 import { Button } from '@signozhq/ui/button';
-import { Callout } from '@signozhq/ui/callout';
 import DetailsHeader, {
 	HeaderAction,
 } from 'components/DetailsPanel/DetailsHeader/DetailsHeader';
@@ -61,6 +61,10 @@ function ServiceNodePanel({
 		() => getNeighbours(graph, id, 'callees'),
 		[graph, id],
 	);
+	const nodesById = useMemo(
+		() => new Map(graph.nodes.map((candidate) => [candidate.id, candidate])),
+		[graph.nodes],
+	);
 
 	return (
 		<aside
@@ -74,9 +78,7 @@ function ServiceNodePanel({
 					<>
 						<div className={styles.meta}>
 							<Badge color="secondary" capitalize>
-								{node.metrics
-									? SERVICE_MAP_TEXT.panelService
-									: SERVICE_MAP_TEXT.panelDataStore}
+								{SERVICE_MAP_TEXT.panelKind[node.kind]}
 							</Badge>
 							{scopeLabels.map((label) => (
 								<Badge key={label} color="vanilla">
@@ -92,15 +94,11 @@ function ServiceNodePanel({
 							hasYesterday={yesterday.has(id)}
 						/>
 
-						<Callout
-							type="info"
-							size="small"
-							showIcon
-							title={SERVICE_MAP_TEXT.blindSpotTitle}
-						>
+						<div className={styles.blindSpot}>
+							<Info size={12} />
 							<span>{SERVICE_MAP_TEXT.panelBlindSpot}</span>
 							<BlindSpotPopover />
-						</Callout>
+						</div>
 
 						<NodeLinks links={links} />
 
@@ -109,6 +107,7 @@ function ServiceNodePanel({
 						<NeighbourList
 							direction="callers"
 							rows={callers}
+							nodes={nodesById}
 							services={services}
 							yesterday={yesterday}
 							onSelect={onSelect}
@@ -116,6 +115,7 @@ function ServiceNodePanel({
 						<NeighbourList
 							direction="callees"
 							rows={callees}
+							nodes={nodesById}
 							services={services}
 							yesterday={yesterday}
 							onSelect={onSelect}

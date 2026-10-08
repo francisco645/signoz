@@ -26,6 +26,10 @@ export const SEARCH_ZOOM = 2;
 export const TOOLBAR_HEIGHT_PX = 48;
 
 export const CHARGE_STRENGTH = -400;
+/** Pull towards the centre that keeps unconnected groups of services in view. */
+export const GRAVITY_STRENGTH = 0.06;
+/** Room below the lowest node for its label, in screen pixels. */
+export const LABEL_ALLOWANCE_PX = 23;
 export const WARMUP_TICKS = 50;
 export const COOLDOWN_TICKS = 100;
 export const REDUCED_MOTION_WARMUP_TICKS = 300;
@@ -37,8 +41,16 @@ export const ZOOM_STEP = 1.4;
 
 /** Canvas sizes, in screen pixels: they are divided by the zoom to stay constant. */
 export const CANVAS = {
-	nodeRadius: 8,
-	nodeHitRadius: 12,
+	nodeRadius: 11,
+	/** Below `pictogramMinZoom` nodes shrink to plain shapes. */
+	compactNodeRadius: 6,
+	nodeHitRadius: 14,
+	pictogramSize: 12,
+	pictogramStroke: 1.25,
+	pictogramMinZoom: 0.6,
+	badgeRadius: 5,
+	badgeCut: 1.5,
+	compactGlyphSize: 2.5,
 	ringGap: 3,
 	glyphSize: 4,
 	arrowLength: 6,
@@ -96,6 +108,9 @@ export const SERVICE_MAP_TEXT = {
 	scopeRequiredTitle: 'Choose an environment or a cluster to draw the map',
 	scopeRequiredBody:
 		'Calls from different environments are summed together, so the map needs one.',
+	scopeRequiredHow:
+		'Pick an environment in the selector above, or add a k8s.cluster.name filter next to it.',
+	scopeRequiredAction: 'Pick an environment',
 	scopeRequiredHint:
 		'Service missing? The map filters on deployment.environment, not on deployment.environment.name.',
 	mixedEnvironments: (environments: string[]): string =>
@@ -112,7 +127,15 @@ export const SERVICE_MAP_TEXT = {
 	legendColorNote: 'Color = errors only. Latency is in the panel.',
 	legendLowTraffic: `Low traffic (< ${MIN_CALLS} calls)`,
 	legendNoData: 'No server data',
+	legendService: 'Service',
+	legendDatabase: 'Database (seen by callers)',
+	legendQueue: 'Queue (seen by callers)',
+	legendZoomedOut: 'Zoomed out: round = service, square = database or queue',
 	legendEdges: 'Width = req/s (log) · arrow = caller → callee',
+	legendCallGlyphs:
+		'Calls take the worse of their own errors (◆ 1–5%, × ≥ 5%) and the health of what they call; the label keeps the call’s own numbers. Databases and queues take the worst of the calls into them.',
+	legendShow: 'Show legend',
+	legendHide: 'Hide legend',
 	legendMissingEdges: 'Missing edges can mean failed calls.',
 	why: 'Why?',
 	blindSpotTitle: 'What the map cannot see',
@@ -134,7 +157,10 @@ export const SERVICE_MAP_TEXT = {
 	panelCallees: 'Callees',
 	panelNoCallers: 'No callers in this time range.',
 	panelNoCallees: 'No callees in this time range.',
-	panelP99Footnote: '* p99 is measured on the callee (server side).',
+	panelP99Footnote:
+		'* Calls to services are measured on the callee (server side); calls to databases and queues on the caller.',
+	panelCall: 'Call',
+	panelVsYesterdayShort: 'Service vs yesterday',
 	panelShowAll: (count: number): string => `Show all (${count})`,
 	panelOpenService: 'Open service',
 	panelTraces: 'Traces',
@@ -144,8 +170,16 @@ export const SERVICE_MAP_TEXT = {
 	panelGone: (service: string): string =>
 		`${service} has no calls in this time range.`,
 	panelClearSelection: 'Clear selection',
-	panelService: 'Service',
-	panelDataStore: 'Database or queue',
+	panelKind: {
+		service: 'Service',
+		database: 'Database',
+		queue: 'Queue',
+		external: 'External',
+	},
+	panelSeenByCallers: (errorRate: string): string =>
+		`${errorRate} errors seen by callers`,
+	panelDataStoreNote:
+		'Measured on the callers. The node stands for the technology, not one instance.',
 	searchPlaceholder: 'Search services…',
 	searchNoResults: (query: string): string => `No service matches "${query}".`,
 	searchFooter: '↑↓ to move · Enter to select · Esc to close',
@@ -154,8 +188,13 @@ export const SERVICE_MAP_TEXT = {
 	focusUp: 'Upstream',
 	focusDown: 'Downstream',
 	focusBoth: 'Both',
-	focusBanner: (root: string, visible: number, total: number): string =>
-		`Focused on ${root} · ${visible} of ${total} services`,
+	focusBanner: (root: string, connected: number): string =>
+		`Focused on ${root} · ${connected} connected ${connected === 1 ? 'service' : 'services'}`,
+	focusDepthAll: 'All hops',
+	focusDepth: (hops: number): string => `${hops} hop${hops > 1 ? 's' : ''}`,
+	focusDirectionLabel: 'Direction',
+	focusDepthLabel: 'Hops',
+	cursorHint: 'Press Enter to inspect.',
 	focusDataStore: (root: string): string =>
 		`All instances of ${root} are summed in one node.`,
 	focusShowList: 'Show list',
@@ -163,7 +202,8 @@ export const SERVICE_MAP_TEXT = {
 	focusCopyNames: 'Copy names',
 	focusCopied: 'Names copied.',
 	canvasLabel:
-		'Service map. Press / to search, F to focus the selected service, Esc to step back.',
+		'Service map. Arrow keys move between services, worst health first. Enter inspects, F focuses, / searches, Esc steps back.',
+	searchLabel: 'Search services',
 	announceSelection: (
 		id: string,
 		health: string,

@@ -11,7 +11,7 @@ function BlindSpotPopover(): JSX.Element {
 			<PopoverTrigger asChild>
 				<Button
 					variant="link"
-					color="primary"
+					color="secondary"
 					size="sm"
 					testId="service-map-blind-spot-trigger"
 				>

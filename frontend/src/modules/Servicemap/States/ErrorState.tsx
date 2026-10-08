@@ -12,7 +12,7 @@ interface ErrorStateProps {
 
 function ErrorState({ message, onRetry }: ErrorStateProps): JSX.Element {
 	return (
-		<div className={styles.state} role="alert">
+		<div className={styles.state}>
 			<Callout
 				className={styles.errorCallout}
 				type="error"

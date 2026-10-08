@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { LinkObject, NodeObject } from 'react-force-graph-2d';
 
 import { CANVAS } from '../constants';
@@ -8,14 +8,11 @@ import type {
 	ServiceMapPalette,
 } from '../types';
 import { Adjacency, linkEndId } from '../utils/adjacency';
-import {
-	drawLink,
-	drawLinkPointerArea,
-	drawNode,
-	drawNodePointerArea,
-} from '../utils/draw';
+import { drawLink, drawLinkPointerArea } from '../utils/drawLink';
+import { drawNode, drawNodePointerArea } from '../utils/drawNode';
 import { formatPercent, formatRate } from '../utils/format';
 import { isAlerting } from '../utils/health';
+import { LabelSpace } from '../utils/labelSpace';
 
 export type GraphNode = NodeObject<ServiceMapNode>;
 export type GraphLink = LinkObject<ServiceMapNode, ServiceMapLink>;
@@ -25,11 +22,17 @@ interface UseCanvasPaintersProps {
 	adjacency: Adjacency;
 	hoveredId?: string;
 	selectedId?: string;
+	/** Node the keyboard cursor sits on. */
+	cursorId?: string;
 	/** Services kept at full opacity; everything else is dimmed. */
 	highlighted?: ReadonlySet<string>;
+	/** Nodes called over a degraded or critical link: their names stay visible. */
+	alertingTargets: ReadonlySet<string>;
 }
 
 interface CanvasPainters {
+	/** Frees the label space; call before every frame. */
+	resetLabels: () => void;
 	paintNode: (
 		node: GraphNode,
 		ctx: CanvasRenderingContext2D,
@@ -66,9 +69,13 @@ export const useCanvasPainters = ({
 	adjacency,
 	hoveredId,
 	selectedId,
+	cursorId,
 	highlighted,
+	alertingTargets,
 }: UseCanvasPaintersProps): CanvasPainters => {
 	const activeId = hoveredId ?? selectedId;
+	const labelSpaceRef = useRef(new LabelSpace());
+	const resetLabels = useCallback((): void => labelSpaceRef.current.reset(), []);
 
 	const neighbours = useMemo(() => {
 		if (!activeId) {
@@ -86,29 +93,43 @@ export const useCanvasPainters = ({
 			const isDimmed = !!highlighted && !highlighted.has(node.id);
 			const isSelected = node.id === selectedId;
 			const isHovered = node.id === hoveredId;
+			const isCursor = node.id === cursorId;
+			const forceLabel =
+				isSelected ||
+				isHovered ||
+				isCursor ||
+				isAlerting(node.band) ||
+				alertingTargets.has(node.id) ||
+				!!neighbours?.has(node.id);
 
 			drawNode(
 				ctx,
 				{ x: node.x ?? 0, y: node.y ?? 0 },
 				{
+					kind: node.kind,
 					band: node.band,
 					label: node.id,
 					isSelected,
 					isHovered,
+					isCursor,
 					isDimmed,
-					showLabel:
-						!isDimmed &&
-						(scale >= CANVAS.labelMinZoom ||
-							isSelected ||
-							isHovered ||
-							isAlerting(node.band) ||
-							!!neighbours?.has(node.id)),
+					forceLabel,
+					showLabel: !isDimmed && (scale >= CANVAS.labelMinZoom || forceLabel),
 				},
 				palette,
 				scale,
+				labelSpaceRef.current,
 			);
 		},
-		[highlighted, hoveredId, neighbours, palette, selectedId],
+		[
+			alertingTargets,
+			cursorId,
+			highlighted,
+			hoveredId,
+			neighbours,
+			palette,
+			selectedId,
+		],
 	);
 
 	const paintNodeArea = useCallback(
@@ -134,14 +155,14 @@ export const useCanvasPainters = ({
 			const showLabel =
 				!isDimmed &&
 				(isEmphasized ||
-					(isAlerting(link.band) && scale >= CANVAS.linkLabelMinZoom));
+					(isAlerting(link.colorBand) && scale >= CANVAS.linkLabelMinZoom));
 
 			drawLink(
 				ctx,
 				positionOf(link.source),
 				positionOf(link.target),
 				{
-					band: link.band,
+					band: link.colorBand,
 					callRate: link.callRate,
 					isBidirectional: link.isBidirectional,
 					isEmphasized,
@@ -152,6 +173,7 @@ export const useCanvasPainters = ({
 				},
 				palette,
 				scale,
+				labelSpaceRef.current,
 			);
 		},
 		[activeId, highlighted, palette],
@@ -176,5 +198,5 @@ export const useCanvasPainters = ({
 		[],
 	);
 
-	return { paintNode, paintNodeArea, paintLink, paintLinkArea };
+	return { resetLabels, paintNode, paintNodeArea, paintLink, paintLinkArea };
 };

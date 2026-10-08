@@ -4,6 +4,14 @@
 	overflow: hidden;
 	background: var(--l1-background);
 
+	:global(canvas) {
+		transition: opacity 0.2s ease;
+	}
+
+	&.isUpdating :global(canvas) {
+		opacity: 0.6;
+	}
+
 	&:focus-visible {
 		outline: 2px solid var(--accent-primary);
 		outline-offset: -2px;

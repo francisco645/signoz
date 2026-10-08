@@ -2,7 +2,7 @@ import type { ServicesList } from 'types/api/metrics/getService';
 import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
 
 import { buildGraph } from '../buildGraph';
-import { formatDelta, getServiceDeltas } from '../delta';
+import { formatDelta, getServiceDeltas, isWorseChange } from '../delta';
 import {
 	buildNodeExpression,
 	buildScopeExpression,
@@ -129,5 +129,14 @@ describe('explorer links', () => {
 		expect(getServicePageLink('my svc', [], window)).toMatch(
 			/^\/services\/my%20svc\?startTime=1000000&endTime=2000000&resourceAttribute=/,
 		);
+	});
+});
+
+describe('isWorseChange', () => {
+	it('treats a big traffic drop as bad news', () => {
+		expect(isWorseChange(-60, 'bothAreWorse')).toBe(true);
+		expect(isWorseChange(-10, 'bothAreWorse')).toBe(false);
+		expect(isWorseChange(-60, 'higherIsWorse')).toBe(false);
+		expect(isWorseChange(5, 'higherIsWorse')).toBe(true);
 	});
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Info } from '@signozhq/icons';
 import { Button } from '@signozhq/ui/button';
 import { Callout } from '@signozhq/ui/callout';
 
@@ -23,9 +23,6 @@ function ServiceMapNotice({
 	onRetry,
 	onKeepEnvironment,
 }: ServiceMapNoticeProps): JSX.Element | null {
-	const ignoredKey = scope.ignoredFilters.join('|');
-	const [dismissedIgnored, setDismissedIgnored] = useState<string>();
-
 	if (hasRefreshFailed) {
 		return (
 			<Callout
@@ -99,18 +96,15 @@ function ServiceMapNotice({
 		);
 	}
 
-	if (scope.ignoredFilters.length > 0 && dismissedIgnored !== ignoredKey) {
+	if (scope.ignoredFilters.length > 0) {
 		return (
-			<Callout
-				className={styles.notice}
-				type="info"
-				size="small"
-				showIcon
-				action="dismissible"
-				onClick={(): void => setDismissedIgnored(ignoredKey)}
-				title={SERVICE_MAP_TEXT.ignoredFilters(scope.ignoredFilters)}
-				testId="service-map-notice-ignored-filters"
-			/>
+			<output
+				className={styles.info}
+				data-testid="service-map-notice-ignored-filters"
+			>
+				<Info size={14} />
+				{SERVICE_MAP_TEXT.ignoredFilters(scope.ignoredFilters)}
+			</output>
 		);
 	}
 

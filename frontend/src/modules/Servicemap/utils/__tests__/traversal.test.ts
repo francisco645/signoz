@@ -49,3 +49,11 @@ describe('formatFocusList', () => {
 		);
 	});
 });
+
+describe('getFocusSet with a hop limit', () => {
+	it('stops after the given number of hops', () => {
+		expect(
+			[...getFocusSet(adjacency, 'postgres', 'up', 1).keys()].sort(),
+		).toStrictEqual(['bills', 'postgres']);
+	});
+});

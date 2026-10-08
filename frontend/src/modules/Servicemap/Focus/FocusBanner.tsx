@@ -6,7 +6,11 @@ import { toast } from '@signozhq/ui/sonner';
 import { ToggleGroup, ToggleGroupItem } from '@signozhq/ui/toggle-group';
 
 import { SERVICE_MAP_TEXT } from '../constants';
-import { FocusDirection, formatFocusList } from '../utils/traversal';
+import {
+	FOCUS_DEPTHS,
+	FocusDirection,
+	formatFocusList,
+} from '../utils/traversal';
 
 import styles from './FocusBanner.module.scss';
 
@@ -14,9 +18,10 @@ interface FocusBannerProps {
 	root: string;
 	direction: FocusDirection;
 	focusSet: ReadonlyMap<string, number>;
-	total: number;
+	depth?: number;
 	isDataStore: boolean;
 	onDirectionChange: (direction: FocusDirection) => void;
+	onDepthChange: (depth?: number) => void;
 	onExit: () => void;
 }
 
@@ -26,9 +31,20 @@ const DIRECTION_LABEL: Record<FocusDirection, string> = {
 	both: SERVICE_MAP_TEXT.focusBoth,
 };
 
+const ALL_HOPS = 'all';
+
 const FocusBanner = forwardRef<HTMLElement, FocusBannerProps>(
 	function FocusBanner(
-		{ root, direction, focusSet, total, isDataStore, onDirectionChange, onExit },
+		{
+			root,
+			direction,
+			focusSet,
+			depth,
+			isDataStore,
+			onDirectionChange,
+			onDepthChange,
+			onExit,
+		},
 		ref,
 	): JSX.Element {
 		const [isListOpen, setIsListOpen] = useState(false);
@@ -44,10 +60,14 @@ const FocusBanner = forwardRef<HTMLElement, FocusBannerProps>(
 			>
 				<div className={styles.row}>
 					<Focus size={14} />
-					<span>{SERVICE_MAP_TEXT.focusBanner(root, focusSet.size, total)}</span>
+					<span>{SERVICE_MAP_TEXT.focusBanner(root, focusSet.size - 1)}</span>
+				</div>
+				<div className={styles.row}>
 					<ToggleGroup
 						type="single"
 						size="sm"
+						aria-label={SERVICE_MAP_TEXT.focusDirectionLabel}
+						className={styles.toggles}
 						value={direction}
 						onChange={(value): void => {
 							if (value) {
@@ -64,6 +84,34 @@ const FocusBanner = forwardRef<HTMLElement, FocusBannerProps>(
 								{DIRECTION_LABEL[value]}
 							</ToggleGroupItem>
 						))}
+					</ToggleGroup>
+					<ToggleGroup
+						type="single"
+						size="sm"
+						aria-label={SERVICE_MAP_TEXT.focusDepthLabel}
+						className={styles.toggles}
+						value={depth ? String(depth) : ALL_HOPS}
+						onChange={(value): void => {
+							if (value) {
+								onDepthChange(value === ALL_HOPS ? undefined : Number(value));
+							}
+						}}
+					>
+						{FOCUS_DEPTHS.map((hops) => (
+							<ToggleGroupItem
+								key={hops}
+								value={String(hops)}
+								data-testid={`service-map-focus-depth-${hops}`}
+							>
+								{SERVICE_MAP_TEXT.focusDepth(hops)}
+							</ToggleGroupItem>
+						))}
+						<ToggleGroupItem
+							value={ALL_HOPS}
+							data-testid="service-map-focus-depth-all"
+						>
+							{SERVICE_MAP_TEXT.focusDepthAll}
+						</ToggleGroupItem>
 					</ToggleGroup>
 					<Button
 						variant="link"
