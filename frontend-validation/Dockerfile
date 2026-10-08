@@ -7,4 +7,7 @@ ENV SIGNOZ_BACKEND=http://signoz:8080
 COPY frontend-validation/default.conf.template /etc/nginx/templates/default.conf.template
 COPY frontend/build/ /usr/share/nginx/html/
 
+# The SigNoz server fills the base href at request time; at the root path it is "/".
+RUN grep -rl '\[\[\.BaseHref\]\]' /usr/share/nginx/html | xargs -r sed -i 's#\[\[\.BaseHref\]\]#/#g'
+
 EXPOSE 80
