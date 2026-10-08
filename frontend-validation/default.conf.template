@@ -9,6 +9,13 @@ map "$request_method:$uri" $read_only_allowed {
     "~^POST:/api/v[0-9]+/query_range$" 1;
     "~^POST:/api/v1/dependency_graph$" 1;
     "~^POST:/api/v2/services$" 1;
+    "~^POST:/api/v1/authz/check$" 1;
+    "~^POST:/api/v1/service/top_level_operations$" 1;
+    "~^POST:/api/v1/variables/query$" 1;
+    "~^POST:/api/v1/(listErrors|countErrors|span_percentile)$" 1;
+    "~^POST:/api/v1/traces/[^/]+/aggregations$" 1;
+    "~^POST:/api/v3/traces/[^/]+/flamegraph$" 1;
+    "~^POST:/api/v4/traces/[^/]+/waterfall$" 1;
     "~^POST:/api/v2/sessions/(email_password|rotate)$" ${ALLOW_LOGIN};
 }
 
