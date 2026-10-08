@@ -108,7 +108,7 @@ function ServiceMapCanvas({
 			return;
 		}
 		const camera = fitCamera(
-			graphRef.getGraphBbox(),
+			graphRef.getGraphBbox((node) => !highlighted || highlighted.has(node.id)),
 			{ width, height },
 			{
 				top: insets.top + FIT_PADDING_PX,
@@ -120,7 +120,23 @@ function ServiceMapCanvas({
 		);
 		graphRef.centerAt(camera.x, camera.y, cameraDuration);
 		graphRef.zoom(camera.zoom, cameraDuration);
-	}, [cameraDuration, fgRef, graph.nodes.length, height, insets, width]);
+	}, [
+		cameraDuration,
+		fgRef,
+		graph.nodes.length,
+		height,
+		highlighted,
+		insets,
+		width,
+	]);
+
+	useEffect(() => {
+		if (highlighted) {
+			fitToView();
+		}
+		// Refit only when the focused set changes, not on every resize.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [highlighted]);
 
 	const handleEngineStop = useCallback((): void => {
 		if (fittedNodesRef.current !== nodesKey) {
