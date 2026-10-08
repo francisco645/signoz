@@ -5,7 +5,10 @@ import {
 } from '../constants';
 import type { ServiceMapLink, ServiceMapNode } from '../types';
 
-export const getNodeRadius = (callRate: number, highestCallRate: number): number =>
+export const getNodeRadius = (
+	callRate: number,
+	highestCallRate: number,
+): number =>
 	highestCallRate > 0
 		? MIN_NODE_RADIUS +
 			(callRate / highestCallRate) * (MAX_NODE_RADIUS - MIN_NODE_RADIUS)
@@ -22,7 +25,7 @@ export const getNodeColor = (
 };
 
 const roundTo2Significant = (num: number): string =>
-	num === 0 ? '0' : num.toFixed(20).match(/^-?\d*\.?0*\d{0,2}/)?.[0] ?? '0';
+	num === 0 ? '0' : (num.toFixed(20).match(/^-?\d*\.?0*\d{0,2}/)?.[0] ?? '0');
 
 export const getLinkTooltip = (
 	link: Pick<ServiceMapLink, 'p99' | 'errorRate' | 'callRate'>,

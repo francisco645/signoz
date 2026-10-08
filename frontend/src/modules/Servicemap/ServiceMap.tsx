@@ -1,75 +1,31 @@
-//@ts-nocheck
-
 import { useEffect, useMemo, useRef } from 'react';
 // eslint-disable-next-line no-restricted-imports
-import { connect } from 'react-redux';
-import { RouteComponentProps, withRouter } from 'react-router-dom';
-import { Card } from 'antd';
-import Spinner from 'components/Spinner';
+import { useSelector } from 'react-redux';
+import { Button } from '@signozhq/ui/button';
+import { Callout } from '@signozhq/ui/callout';
+import cx from 'classnames';
 import TextToolTip from 'components/TextToolTip';
 import ResourceAttributesFilter from 'container/ResourceAttributesFilter';
 import useResourceAttribute from 'hooks/useResourceAttribute';
 import { whilelistedKeys } from 'hooks/useResourceAttribute/config';
-import { IResourceAttribute } from 'hooks/useResourceAttribute/types';
 import { filterServiceMapSupportedQueries } from 'hooks/useResourceAttribute/utils';
-import { getDetailedServiceMapItems, ServiceMapStore } from 'store/actions';
 import { AppState } from 'store/reducers';
-import styled from 'styled-components';
-import { GlobalTime } from 'types/actions/globalTime';
+import { GlobalReducer } from 'types/reducer/globalTime';
 
-import { CHARGE_STRENGTH } from './constants';
-import Map from './Map';
+import { CHARGE_STRENGTH, SERVICE_MAP_TEXT } from './constants';
+import { useDependencyGraph } from './hooks/useDependencyGraph';
+import Map, { ServiceMapGraphRef } from './Map';
+import EmptyState from './States/EmptyState';
+import ErrorState from './States/ErrorState';
+import LoadingState from './States/LoadingState';
 
-const Container = styled.div`
-	.force-graph-container {
-		overflow: scroll;
-	}
+import styles from './ServiceMap.module.scss';
 
-	.force-graph-container .graph-tooltip {
-		background: transparent;
-		padding: 0;
-		.keyval {
-			display: flex;
-			.key {
-				margin-right: 4px;
-			}
-			.val {
-				margin-left: auto;
-			}
-		}
-	}
-`;
-
-interface ServiceMapProps extends RouteComponentProps<any> {
-	serviceMap: ServiceMapStore;
-	globalTime: GlobalTime;
-	getDetailedServiceMapItems: (
-		time: GlobalTime,
-		queries: IResourceAttribute[],
-	) => void;
-}
-interface graphNode {
-	id: string;
-	group: number;
-}
-interface graphLink {
-	source: string;
-	target: string;
-	value: number;
-	callRate: number;
-	errorRate: number;
-	p99: number;
-}
-export interface graphDataType {
-	nodes: graphNode[];
-	links: graphLink[];
-}
-
-function ServiceMap(props: ServiceMapProps): JSX.Element {
-	const fgRef = useRef();
-
-	const { getDetailedServiceMapItems, globalTime, serviceMap } = props;
-
+function ServiceMap(): JSX.Element {
+	const fgRef: ServiceMapGraphRef = useRef();
+	const { minTime, maxTime } = useSelector<AppState, GlobalReducer>(
+		(state) => state.globalTime,
+	);
 	const { queries } = useResourceAttribute();
 
 	const supportedQueries = useMemo(
@@ -77,61 +33,81 @@ function ServiceMap(props: ServiceMapProps): JSX.Element {
 		[queries],
 	);
 
-	useEffect(() => {
-		/*
-			Call the apis only when the route is loaded.
-			Check this issue: https://github.com/SigNoz/signoz/issues/110
-		 */
-		getDetailedServiceMapItems(globalTime, supportedQueries);
-	}, [globalTime, getDetailedServiceMapItems, supportedQueries]);
+	const { data, error, isError, isFetching, isLoading, refetch } =
+		useDependencyGraph({ minTime, maxTime, queries: supportedQueries });
 
 	useEffect(() => {
 		fgRef.current?.d3Force('charge')?.strength(CHARGE_STRENGTH);
-	}, [serviceMap.items]);
+	}, [data]);
+
+	const handleRetry = (): void => {
+		void refetch();
+	};
 
 	const renderBody = (): JSX.Element => {
-		if (serviceMap.loading) {
-			return <Spinner size="large" tip="Loading..." />;
+		if (isLoading) {
+			return <LoadingState />;
 		}
 
-		if (serviceMap.items.length === 0) {
-			return <Card>No Service Found</Card>;
+		if (!data) {
+			return (
+				<ErrorState
+					message={error?.getErrorMessage() ?? ''}
+					onRetry={handleRetry}
+				/>
+			);
 		}
 
-		return <Map fgRef={fgRef} dependencies={serviceMap.items} />;
+		if (data.length === 0) {
+			return <EmptyState />;
+		}
+
+		return (
+			<div className={cx(styles.graph, { [styles.isUpdating]: isFetching })}>
+				{isFetching && (
+					<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
+				)}
+				<Map fgRef={fgRef} dependencies={data} />
+			</div>
+		);
 	};
 
 	return (
-		<Container className="service-map-container">
+		<div className={styles.root} data-testid="service-map">
 			<ResourceAttributesFilter
 				suffixIcon={
 					<TextToolTip
-						{...{
-							text: `Currently, service map supports filtering of ${whilelistedKeys.join(
-								', ',
-							)} only, in resource attributes`,
-						}}
+						text={`Currently, service map supports filtering of ${whilelistedKeys.join(
+							', ',
+						)} only, in resource attributes`}
 					/>
 				}
 			/>
 
-			{renderBody()}
-		</Container>
+			{isError && data && (
+				<Callout
+					className={styles.notice}
+					type="warning"
+					size="small"
+					showIcon
+					title={SERVICE_MAP_TEXT.refreshFailed}
+					testId="service-map-refresh-failed"
+				>
+					<Button
+						variant="link"
+						color="secondary"
+						size="sm"
+						onClick={handleRetry}
+						testId="service-map-refresh-retry"
+					>
+						{SERVICE_MAP_TEXT.retry}
+					</Button>
+				</Callout>
+			)}
+
+			<div className={styles.body}>{renderBody()}</div>
+		</div>
 	);
 }
 
-const mapStateToProps = (
-	state: AppState,
-): {
-	serviceMap: serviceMapStore;
-	globalTime: GlobalTime;
-} => ({
-	serviceMap: state.serviceMap,
-	globalTime: state.globalTime,
-});
-
-export default withRouter(
-	connect(mapStateToProps, {
-		getDetailedServiceMapItems,
-	})(ServiceMap),
-);
+export default ServiceMap;

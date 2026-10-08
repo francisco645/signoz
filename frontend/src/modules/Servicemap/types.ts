@@ -1,5 +1,3 @@
-import type { ServicesMapItem } from 'store/actions/serviceMap';
-
 export interface ServiceMapNode {
 	id: string;
 	/** Calls into the service, summed over its incoming edges. */
@@ -27,5 +25,3 @@ export interface ServiceMapGraph {
 	nodes: ServiceMapNode[];
 	links: ServiceMapLink[];
 }
-
-export type ServiceMapDependency = ServicesMapItem;

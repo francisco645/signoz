@@ -1,4 +1,11 @@
-import { memo, MutableRefObject, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+	memo,
+	MutableRefObject,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+} from 'react';
 import ForceGraph2D, {
 	ForceGraphMethods,
 	LinkObject,
@@ -7,12 +14,9 @@ import ForceGraph2D, {
 import { useIsDarkMode } from 'hooks/useDarkMode';
 
 import { NODE_FONT_SIZE } from './constants';
-import type {
-	ServiceMapDependency,
-	ServiceMapGraph,
-	ServiceMapLink,
-	ServiceMapNode,
-} from './types';
+import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
+
+import type { ServiceMapGraph, ServiceMapLink, ServiceMapNode } from './types';
 import { buildGraph, getNodePositions } from './utils/buildGraph';
 import {
 	getLinkTooltip,

@@ -1,0 +1,33 @@
+.state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-4);
+	height: 100%;
+	min-height: 18rem;
+	padding: var(--spacing-8);
+	color: var(--l2-foreground);
+	text-align: center;
+}
+
+.title {
+	color: var(--l1-foreground);
+	font-size: var(--periscope-font-size-base);
+	font-weight: var(--font-weight-medium);
+}
+
+.body {
+	max-width: 36rem;
+	font-size: var(--periscope-font-size-small);
+}
+
+.errorCallout {
+	max-width: 36rem;
+}
+
+.actions {
+	display: flex;
+	gap: var(--spacing-4);
+	margin-top: var(--spacing-4);
+}

@@ -1,4 +1,5 @@
-import type { ServiceMapDependency } from '../../types';
+import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
+
 import { buildGraph, getNodePositions } from '../buildGraph';
 
 const dependency = (
@@ -65,9 +66,9 @@ describe('buildGraph', () => {
 
 		expect(first.nodes.map((node) => node.id)).toStrictEqual(['a', 'b', 'c']);
 		expect(second).toStrictEqual(first);
-		expect(first.links.map((link) => `${link.source}>${link.target}`)).toStrictEqual(
-			['a>b', 'a>c', 'b>c'],
-		);
+		expect(
+			first.links.map((link) => `${link.source}>${link.target}`),
+		).toStrictEqual(['a>b', 'a>c', 'b>c']);
 	});
 
 	it('keeps the positions of nodes that were already laid out', () => {
