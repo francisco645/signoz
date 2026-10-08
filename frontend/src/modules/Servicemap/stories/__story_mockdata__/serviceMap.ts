@@ -326,7 +326,12 @@ export const attributeValuesResponse = (
 	},
 });
 
-export const RESOURCE_FILTERS = ['environment', 'cluster'] as const;
+export const RESOURCE_FILTERS = [
+	'environment',
+	'mixed-environments',
+	'cluster',
+	'service',
+] as const;
 
 export type ResourceFilter = (typeof RESOURCE_FILTERS)[number];
 
@@ -341,11 +346,23 @@ const FILTER_QUERIES: Record<ResourceFilter, IResourceAttribute> = {
 		operator: 'IN',
 		tagValue: ['production'],
 	},
+	'mixed-environments': {
+		id: 'storybook-mixed-environments',
+		tagKey: getResourceDeploymentKeys(),
+		operator: 'IN',
+		tagValue: ['production', 'staging'],
+	},
 	cluster: {
 		id: 'storybook-cluster',
 		tagKey: CLUSTER_KEY,
 		operator: 'IN',
 		tagValue: ['prod-us-east'],
+	},
+	service: {
+		id: 'storybook-service',
+		tagKey: 'resource_service_name',
+		operator: 'IN',
+		tagValue: ['checkout'],
 	},
 };
 

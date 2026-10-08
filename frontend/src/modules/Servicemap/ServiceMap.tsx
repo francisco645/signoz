@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 // eslint-disable-next-line no-restricted-imports
 import { useSelector } from 'react-redux';
-import { Button } from '@signozhq/ui/button';
-import { Callout } from '@signozhq/ui/callout';
 import cx from 'classnames';
 import TextToolTip from 'components/TextToolTip';
 import ResourceAttributesFilter from 'container/ResourceAttributesFilter';
@@ -15,9 +13,12 @@ import { GlobalReducer } from 'types/reducer/globalTime';
 import { CHARGE_STRENGTH, SERVICE_MAP_TEXT } from './constants';
 import { useDependencyGraph } from './hooks/useDependencyGraph';
 import Map, { ServiceMapGraphRef } from './Map';
+import ServiceMapNotice from './Notices/ServiceMapNotice';
 import EmptyState from './States/EmptyState';
 import ErrorState from './States/ErrorState';
 import LoadingState from './States/LoadingState';
+import ScopeRequiredState from './States/ScopeRequiredState';
+import { getServiceMapScope } from './utils/scope';
 
 import styles from './ServiceMap.module.scss';
 
@@ -26,15 +27,21 @@ function ServiceMap(): JSX.Element {
 	const { minTime, maxTime } = useSelector<AppState, GlobalReducer>(
 		(state) => state.globalTime,
 	);
-	const { queries } = useResourceAttribute();
+	const { queries, handleEnvironmentChange } = useResourceAttribute();
 
+	const scope = useMemo(() => getServiceMapScope(queries), [queries]);
 	const supportedQueries = useMemo(
 		() => filterServiceMapSupportedQueries(queries),
 		[queries],
 	);
 
 	const { data, error, isError, isFetching, isLoading, refetch } =
-		useDependencyGraph({ minTime, maxTime, queries: supportedQueries });
+		useDependencyGraph({
+			minTime,
+			maxTime,
+			queries: supportedQueries,
+			enabled: scope.hasScope,
+		});
 
 	useEffect(() => {
 		fgRef.current?.d3Force('charge')?.strength(CHARGE_STRENGTH);
@@ -45,6 +52,10 @@ function ServiceMap(): JSX.Element {
 	};
 
 	const renderBody = (): JSX.Element => {
+		if (!scope.hasScope) {
+			return <ScopeRequiredState />;
+		}
+
 		if (isLoading) {
 			return <LoadingState />;
 		}
@@ -84,26 +95,14 @@ function ServiceMap(): JSX.Element {
 				}
 			/>
 
-			{isError && data && (
-				<Callout
-					className={styles.notice}
-					type="warning"
-					size="small"
-					showIcon
-					title={SERVICE_MAP_TEXT.refreshFailed}
-					testId="service-map-refresh-failed"
-				>
-					<Button
-						variant="link"
-						color="secondary"
-						size="sm"
-						onClick={handleRetry}
-						testId="service-map-refresh-retry"
-					>
-						{SERVICE_MAP_TEXT.retry}
-					</Button>
-				</Callout>
-			)}
+			<ServiceMapNotice
+				scope={scope}
+				hasRefreshFailed={isError && !!data}
+				onRetry={handleRetry}
+				onKeepEnvironment={(environment): void =>
+					handleEnvironmentChange([environment])
+				}
+			/>
 
 			<div className={styles.body}>{renderBody()}</div>
 		</div>

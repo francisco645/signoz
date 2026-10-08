@@ -25,3 +25,13 @@ export interface ServiceMapGraph {
 	nodes: ServiceMapNode[];
 	links: ServiceMapLink[];
 }
+
+export interface ServiceMapScope {
+	/** Environments the filters keep, when they name them. */
+	environments: string[];
+	/** An environment or a cluster narrows the map. */
+	hasScope: boolean;
+	isMixedEnvironments: boolean;
+	/** Filters the service map API drops, formatted for display. */
+	ignoredFilters: string[];
+}
