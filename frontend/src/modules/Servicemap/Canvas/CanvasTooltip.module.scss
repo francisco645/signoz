@@ -1,0 +1,30 @@
+.tooltip {
+	position: absolute;
+	z-index: 2;
+	max-width: 20rem;
+	padding: var(--spacing-4) var(--spacing-6);
+	border: 1px solid var(--l2-border);
+	border-radius: var(--radius-2);
+	background: var(--l2-background);
+	color: var(--l2-foreground);
+	font-size: var(--periscope-font-size-small);
+	line-height: var(--line-height-18);
+	pointer-events: none;
+}
+
+.title {
+	display: flex;
+	gap: var(--spacing-4);
+	justify-content: space-between;
+	color: var(--l1-foreground);
+	font-weight: var(--font-weight-medium);
+	word-break: break-all;
+}
+
+.metric {
+	font-variant-numeric: tabular-nums;
+}
+
+.note {
+	margin-top: var(--spacing-2);
+}

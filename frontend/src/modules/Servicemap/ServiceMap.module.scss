@@ -13,15 +13,12 @@
 }
 
 .graph {
+	position: absolute;
+	inset: 0;
 	transition: opacity 0.2s ease;
 
 	&.isUpdating {
 		opacity: 0.6;
-	}
-
-	:global(.graph-tooltip) {
-		padding: 0;
-		background: transparent;
 	}
 }
 

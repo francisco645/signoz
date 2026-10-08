@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useRef } from 'react';
-// eslint-disable-next-line no-restricted-imports
-import { useSelector } from 'react-redux';
+import { useMemo, useRef, useState } from 'react';
 import cx from 'classnames';
 import TextToolTip from 'components/TextToolTip';
 import ResourceAttributesFilter from 'container/ResourceAttributesFilter';
 import useResourceAttribute from 'hooks/useResourceAttribute';
 import { whilelistedKeys } from 'hooks/useResourceAttribute/config';
-import { filterServiceMapSupportedQueries } from 'hooks/useResourceAttribute/utils';
-import { AppState } from 'store/reducers';
-import { GlobalReducer } from 'types/reducer/globalTime';
 
-import { CHARGE_STRENGTH, SERVICE_MAP_TEXT } from './constants';
-import { useDependencyGraph } from './hooks/useDependencyGraph';
-import Map, { ServiceMapGraphRef } from './Map';
+import ServiceMapCanvas, {
+	ServiceMapGraphRef,
+} from './Canvas/ServiceMapCanvas';
+import { SERVICE_MAP_TEXT } from './constants';
+import { useContainerSize } from './hooks/useContainerSize';
+import { useServiceMapData } from './hooks/useServiceMapData';
+import ServiceMapLegend from './Legend/ServiceMapLegend';
 import ServiceMapNotice from './Notices/ServiceMapNotice';
 import EmptyState from './States/EmptyState';
 import ErrorState from './States/ErrorState';
@@ -24,32 +23,26 @@ import styles from './ServiceMap.module.scss';
 
 function ServiceMap(): JSX.Element {
 	const fgRef: ServiceMapGraphRef = useRef();
-	const { minTime, maxTime } = useSelector<AppState, GlobalReducer>(
-		(state) => state.globalTime,
+	const [body, setBody] = useState<HTMLDivElement | null>(null);
+	const [legend, setLegend] = useState<HTMLElement | null>(null);
+	const { width, height } = useContainerSize(body);
+	const legendSize = useContainerSize(legend);
+	const insets = useMemo(
+		() => ({ top: 0, right: 0, bottom: legendSize.height, left: 0 }),
+		[legendSize.height],
 	);
 	const { queries, handleEnvironmentChange } = useResourceAttribute();
 
 	const scope = useMemo(() => getServiceMapScope(queries), [queries]);
-	const supportedQueries = useMemo(
-		() => filterServiceMapSupportedQueries(queries),
-		[queries],
-	);
-
-	const { data, error, isError, isFetching, isLoading, refetch } =
-		useDependencyGraph({
-			minTime,
-			maxTime,
-			queries: supportedQueries,
-			enabled: scope.hasScope,
-		});
-
-	useEffect(() => {
-		fgRef.current?.d3Force('charge')?.strength(CHARGE_STRENGTH);
-	}, [data]);
-
-	const handleRetry = (): void => {
-		void refetch();
-	};
+	const {
+		graph,
+		error,
+		isLoading,
+		isFetching,
+		hasRefreshFailed,
+		hasServicesFailed,
+		refetch,
+	} = useServiceMapData(queries, scope.hasScope);
 
 	const renderBody = (): JSX.Element => {
 		if (!scope.hasScope) {
@@ -60,16 +53,13 @@ function ServiceMap(): JSX.Element {
 			return <LoadingState />;
 		}
 
-		if (!data) {
+		if (!graph) {
 			return (
-				<ErrorState
-					message={error?.getErrorMessage() ?? ''}
-					onRetry={handleRetry}
-				/>
+				<ErrorState message={error?.getErrorMessage() ?? ''} onRetry={refetch} />
 			);
 		}
 
-		if (data.length === 0) {
+		if (graph.links.length === 0) {
 			return <EmptyState />;
 		}
 
@@ -78,7 +68,14 @@ function ServiceMap(): JSX.Element {
 				{isFetching && (
 					<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
 				)}
-				<Map fgRef={fgRef} dependencies={data} />
+				<ServiceMapCanvas
+					fgRef={fgRef}
+					graph={graph}
+					width={width}
+					height={height}
+					insets={insets}
+				/>
+				<ServiceMapLegend ref={setLegend} />
 			</div>
 		);
 	};
@@ -97,14 +94,17 @@ function ServiceMap(): JSX.Element {
 
 			<ServiceMapNotice
 				scope={scope}
-				hasRefreshFailed={isError && !!data}
-				onRetry={handleRetry}
+				hasRefreshFailed={hasRefreshFailed}
+				hasServicesFailed={hasServicesFailed}
+				onRetry={refetch}
 				onKeepEnvironment={(environment): void =>
 					handleEnvironmentChange([environment])
 				}
 			/>
 
-			<div className={styles.body}>{renderBody()}</div>
+			<div className={styles.body} ref={setBody}>
+				{renderBody()}
+			</div>
 		</div>
 	);
 }

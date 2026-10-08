@@ -10,6 +10,7 @@ import styles from './ServiceMapNotice.module.scss';
 interface ServiceMapNoticeProps {
 	scope: ServiceMapScope;
 	hasRefreshFailed: boolean;
+	hasServicesFailed: boolean;
 	onRetry: () => void;
 	onKeepEnvironment: (environment: string) => void;
 }
@@ -18,6 +19,7 @@ interface ServiceMapNoticeProps {
 function ServiceMapNotice({
 	scope,
 	hasRefreshFailed,
+	hasServicesFailed,
 	onRetry,
 	onKeepEnvironment,
 }: ServiceMapNoticeProps): JSX.Element | null {
@@ -40,6 +42,29 @@ function ServiceMapNotice({
 					size="sm"
 					onClick={onRetry}
 					testId="service-map-notice-retry"
+				>
+					{SERVICE_MAP_TEXT.retry}
+				</Button>
+			</Callout>
+		);
+	}
+
+	if (hasServicesFailed) {
+		return (
+			<Callout
+				className={styles.notice}
+				type="warning"
+				size="small"
+				showIcon
+				title={SERVICE_MAP_TEXT.servicesUnavailable}
+				testId="service-map-notice-services-unavailable"
+			>
+				<Button
+					variant="link"
+					color="secondary"
+					size="sm"
+					onClick={onRetry}
+					testId="service-map-notice-services-retry"
 				>
 					{SERVICE_MAP_TEXT.retry}
 				</Button>

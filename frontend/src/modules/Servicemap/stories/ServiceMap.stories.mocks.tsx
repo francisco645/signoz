@@ -29,6 +29,9 @@ import {
 	resourceFilterQueries,
 	SERVICE_HEALTH,
 	type ServiceHealth,
+	servicesResponse,
+	TOPOLOGIES,
+	type Topology,
 } from './__story_mockdata__/serviceMap';
 
 const GRAPH = 'Service map · graph';
@@ -54,6 +57,13 @@ const serviceMapRoute = (filters: readonly ResourceFilter[]): string => {
 
 export const serviceMapMocks = defineStoryMocks({
 	controls: {
+		topology: choiceControl<Topology>('Topology', {
+			group: GRAPH,
+			description:
+				'`large` answers with 500 services and 1,500 calls, the size the map has to stay usable at. It ignores the other graph controls and the filters.',
+			options: TOPOLOGIES,
+			value: 'demo',
+		}),
 		services: countControl('Dependencies', {
 			group: GRAPH,
 			description:
@@ -95,6 +105,21 @@ export const serviceMapMocks = defineStoryMocks({
 				const body = (await req.json()) as DependencyGraphBody;
 
 				return dependencyGraphResponse({
+					topology: values.topology,
+					count: values.services,
+					health: values.health,
+					tags: body.tags,
+				});
+			}),
+		),
+
+		rest.post(
+			'http://localhost/api/v2/services',
+			response.json(async (req) => {
+				const body = (await req.json()) as DependencyGraphBody;
+
+				return servicesResponse({
+					topology: values.topology,
 					count: values.services,
 					health: values.health,
 					tags: body.tags,

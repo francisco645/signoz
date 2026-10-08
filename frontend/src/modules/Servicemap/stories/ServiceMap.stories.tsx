@@ -14,8 +14,9 @@ const pageStory = storyMocks(serviceMapMocks, { layout: 'app' });
 
 /**
  * Service to service calls as a force graph over `/api/v1/dependency_graph`,
- * scoped to an environment or a cluster, nodes sized by request rate and
- * coloured by error rate, with link details on hover.
+ * scoped to an environment or a cluster. Nodes take their health from the
+ * service's own spans (`/api/v2/services`), in error bands that also differ by
+ * border and glyph; links are as wide as their traffic and point at the callee.
  *
  * Route: `/service-map`.
  */
@@ -35,15 +36,25 @@ type Story = StoryObj<ServiceMapArgs>;
 const untilLoaded = { timeout: 15_000 };
 
 /**
- * The whole topology: one node per service, sized by how many calls it takes,
- * red where those calls are failing, and a link per dependency carrying the
- * latency and error rate its tooltip reports.
+ * The whole topology: one node per service, neutral while healthy, amber and red
+ * past 1% and 5% errors, hollow for databases with no spans of their own, and a
+ * link per dependency carrying the latency and error rate its tooltip reports.
  */
 export const Default: Story = {};
 
-/** A topology without service errors, preserving the healthy node treatment. */
+/** A topology without service errors: every node neutral, nothing asks for attention. */
 export const HealthyTopology: Story = {
 	args: { health: 'healthy' },
+};
+
+/** Every call failing somewhere: the critical and degraded bands side by side. */
+export const FailingTopology: Story = {
+	args: { health: 'failing' },
+};
+
+/** 500 services and 1,500 calls: the acceptance check for pan, zoom and first draw. */
+export const LargeTopology: Story = {
+	args: { topology: 'large' },
 };
 
 /**
