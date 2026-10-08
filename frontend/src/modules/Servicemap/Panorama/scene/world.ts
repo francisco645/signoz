@@ -1,6 +1,7 @@
 import {
 	BufferGeometry,
 	Group,
+	InstancedMesh,
 	Material,
 	Mesh,
 	Object3D,
@@ -9,7 +10,7 @@ import {
 } from 'three';
 
 import type { PanoramaTier } from '../../utils/tiers';
-import { createLinkObject, LinkObject } from './linkMesh';
+import { createLinkBatch, LinkBatch } from './linkBatch';
 import { createNodeObject, NodeObject } from './nodeMesh';
 import type { PanoramaModel } from './panoramaModel';
 import { PanoramaTheme, TIER_HEIGHT } from './panoramaTheme';
@@ -30,7 +31,7 @@ export interface WorldNode extends NodeObject {
 export interface World {
 	root: Group;
 	nodes: Map<string, WorldNode>;
-	links: LinkObject[];
+	links: LinkBatch;
 	planes: TierPlane[];
 	/** Every mesh the pointer can hit, collected once. */
 	hitTargets: Mesh[];
@@ -66,13 +67,9 @@ export const buildWorld = (
 		hitTargets.push(...object.hitTargets);
 		root.add(object.group);
 	});
-	const links = model.links.map((link) =>
-		createLinkObject(link, theme, geometries),
-	);
-	links.forEach((link) => {
-		hitTargets.push(link.tube);
-		root.add(link.tube, link.head, ...link.particles);
-	});
+	const links = createLinkBatch(model.links, theme, geometries);
+	hitTargets.push(links.tubes);
+	root.add(links.tubes, links.heads, links.particles);
 
 	return {
 		root,
@@ -99,19 +96,18 @@ export const placeWorld = (
 		node.group.position.set(node.x, TIER_HEIGHT[node.tier] * (1 - flat), node.y),
 	);
 	placeTierPlanes(world.planes, flat);
-	world.links.forEach((link) => {
-		const from = world.nodes.get(link.link.source);
-		const to = world.nodes.get(link.link.target);
-		if (from && to) {
-			link.place(
-				from.group.position,
-				to.group.position,
-				from.radius,
-				to.radius,
-				elapsedS,
-			);
-		}
-	});
+	world.links.place((link) => {
+		const from = world.nodes.get(link.source);
+		const to = world.nodes.get(link.target);
+		return from && to
+			? {
+					from: from.group.position,
+					to: to.group.position,
+					fromRadius: from.radius,
+					toRadius: to.radius,
+				}
+			: undefined;
+	}, elapsedS);
 };
 
 type Drawable = Object3D & {
@@ -124,6 +120,9 @@ export const disposeWorld = (world: World): void => {
 	const geometries = new Set<BufferGeometry>();
 	const materials = new Set<Material>();
 	world.root.traverse((object: Drawable) => {
+		if (object instanceof InstancedMesh) {
+			object.dispose();
+		}
 		// three.js shares one quad across every Sprite: it is not ours to free.
 		if (object.geometry && !(object instanceof Sprite)) {
 			geometries.add(object.geometry);

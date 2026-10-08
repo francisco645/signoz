@@ -1,17 +1,24 @@
 import { Camera, Raycaster, Vector2 } from 'three';
 
-import type { LinkObject } from './linkMesh';
 import type { PanoramaLink } from './panoramaModel';
 import type { World } from './world';
 
 export type PanoramaHit =
 	| { kind: 'node'; id: string }
-	| { kind: 'link'; link: PanoramaLink };
+	| { kind: 'link'; link: PanoramaLink; index: number };
 
 interface PointerHandlers {
 	onHover: (hit: PanoramaHit | undefined, x: number, y: number) => void;
 	onNodeClick: (id: string) => void;
 }
+
+interface Highlight {
+	/** Link index; nodes compare by identity. */
+	key?: number;
+	setHighlighted: (on: boolean) => void;
+}
+
+const keyOf = (highlight?: Highlight): unknown => highlight?.key ?? highlight;
 
 /** A press that moves less than this is a click, not a drag of the camera. */
 const CLICK_SLOP_PX = 4;
@@ -25,7 +32,7 @@ export const attachPointer = (
 ): { detach: () => void; reset: () => void } => {
 	const raycaster = new Raycaster();
 	const pointer = new Vector2();
-	let highlighted: { setHighlighted: (on: boolean) => void } | undefined;
+	let highlighted: Highlight | undefined;
 	let pressedAt: { x: number; y: number } | undefined;
 
 	const pick = (event: PointerEvent): PanoramaHit | undefined => {
@@ -39,12 +46,13 @@ export const attachPointer = (
 			-((event.clientY - bounds.top) / bounds.height) * 2 + 1,
 		);
 		raycaster.setFromCamera(pointer, camera);
-		const hit = raycaster.intersectObjects(world.hitTargets, false)[0]?.object;
-		if (hit?.userData.nodeId) {
-			return { kind: 'node', id: hit.userData.nodeId };
+		const hit = raycaster.intersectObjects(world.hitTargets, false)[0];
+		if (hit?.object.userData.nodeId) {
+			return { kind: 'node', id: hit.object.userData.nodeId };
 		}
-		return hit?.userData.link
-			? { kind: 'link', link: hit.userData.link }
+		const index = hit?.instanceId;
+		return hit?.object.userData.isLinkBatch && index !== undefined
+			? { kind: 'link', link: world.links.links[index], index }
 			: undefined;
 	};
 
@@ -55,13 +63,17 @@ export const attachPointer = (
 		}
 		const hit = pick(event);
 		const world = getWorld();
-		let next: { setHighlighted: (on: boolean) => void } | undefined;
+		let next: Highlight | undefined;
 		if (hit?.kind === 'node') {
 			next = world?.nodes.get(hit.id);
-		} else if (hit?.kind === 'link') {
-			next = world?.links.find((link: LinkObject) => link.link === hit.link);
+		} else if (hit?.kind === 'link' && world) {
+			const { index } = hit;
+			next = {
+				key: index,
+				setHighlighted: (on): void => world.links.setHighlighted(index, on),
+			};
 		}
-		if (highlighted !== next) {
+		if (keyOf(highlighted) !== keyOf(next)) {
 			highlighted?.setHighlighted(false);
 			next?.setHighlighted(true);
 			highlighted = next;
