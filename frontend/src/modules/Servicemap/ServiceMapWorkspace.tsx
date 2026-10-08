@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { Focus } from '@signozhq/icons';
+import { Button } from '@signozhq/ui/button';
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -11,12 +13,20 @@ import type { ServicesList } from 'types/api/metrics/getService';
 import ServiceMapCanvas, {
 	ServiceMapGraphRef,
 } from './Canvas/ServiceMapCanvas';
-import { CAMERA_DURATION_MS, PANEL_SIZE, SERVICE_MAP_TEXT } from './constants';
+import {
+	CAMERA_DURATION_MS,
+	PANEL_SIZE,
+	SEARCH_ZOOM,
+	SERVICE_MAP_TEXT,
+	TOOLBAR_HEIGHT_PX,
+} from './constants';
+import FocusBanner from './Focus/FocusBanner';
 import { useContainerSize } from './hooks/useContainerSize';
-import { useSelectedService } from './hooks/useSelectedService';
+import { useServiceMapInteractions } from './hooks/useServiceMapInteractions';
 import { useYesterdayServices } from './hooks/useYesterdayServices';
 import ServiceMapLegend from './Legend/ServiceMapLegend';
 import ServiceNodePanel from './NodePanel/ServiceNodePanel';
+import ServiceSearch from './Toolbar/ServiceSearch';
 import type { ServiceMapGraph } from './types';
 
 import styles from './ServiceMapWorkspace.module.scss';
@@ -42,27 +52,54 @@ function ServiceMapWorkspace({
 	isFetching,
 }: ServiceMapWorkspaceProps): JSX.Element {
 	const fgRef: ServiceMapGraphRef = useRef();
+	const searchRef = useRef<HTMLInputElement>(null);
 	const [canvasArea, setCanvasArea] = useState<HTMLDivElement | null>(null);
 	const [legend, setLegend] = useState<HTMLElement | null>(null);
 	const { width, height } = useContainerSize(canvasArea);
 	const legendSize = useContainerSize(legend);
-	const [selected, setSelected] = useSelectedService();
+	const [banner, setBanner] = useState<HTMLElement | null>(null);
+	const bannerSize = useContainerSize(banner);
+	const {
+		selected,
+		focusRoot,
+		focusDirection,
+		focusSet,
+		announcement,
+		select,
+		clickNode,
+		toggleFocus,
+		setFocusDirection,
+		exitFocus,
+		handleKeyDown,
+	} = useServiceMapInteractions(graph, searchRef);
 	const yesterday = useYesterdayServices(minTime, maxTime, queries, !!selected);
 
 	const insets = useMemo(
-		() => ({ top: 0, right: 0, bottom: legendSize.height, left: 0 }),
-		[legendSize.height],
+		() => ({
+			top: TOOLBAR_HEIGHT_PX + bannerSize.height,
+			right: 0,
+			bottom: legendSize.height,
+			left: 0,
+		}),
+		[bannerSize.height, legendSize.height],
+	);
+	const highlighted = useMemo(
+		() => (focusSet ? new Set(focusSet.keys()) : undefined),
+		[focusSet],
 	);
 
 	const selectAndCenter = useCallback(
-		(id: string): void => {
-			setSelected(id);
+		(id: string, zoom?: number): void => {
+			select(id);
 			const node = graph.nodes.find((candidate) => candidate.id === id);
 			if (node?.x !== undefined && node.y !== undefined) {
 				fgRef.current?.centerAt(node.x, node.y, CAMERA_DURATION_MS);
+				if (zoom) {
+					fgRef.current?.zoom(zoom, CAMERA_DURATION_MS);
+				}
 			}
 		},
-		[graph.nodes, setSelected],
+		[graph.nodes, select],
 	);
 
 	return (
@@ -73,12 +110,34 @@ function ServiceMapWorkspace({
 			testId="service-map-workspace"
 		>
 			<ResizablePanel id="service-map-canvas-slot" minSize="30%">
+				{/* Shortcuts are scoped to the map; the handler ignores typing in inputs. */}
+				{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
 				<div
 					ref={setCanvasArea}
 					className={cx(styles.canvasArea, { [styles.isUpdating]: isFetching })}
+					onKeyDown={handleKeyDown}
 				>
-					{isFetching && (
-						<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
+					<div className={styles.toolbar}>
+						<ServiceSearch
+							ref={searchRef}
+							nodes={graph.nodes}
+							onSelect={(id): void => selectAndCenter(id, SEARCH_ZOOM)}
+						/>
+						{isFetching && (
+							<output className={styles.status}>{SERVICE_MAP_TEXT.updating}</output>
+						)}
+					</div>
+					{focusRoot && focusSet && (
+						<FocusBanner
+							ref={setBanner}
+							root={focusRoot}
+							direction={focusDirection}
+							focusSet={focusSet}
+							total={graph.nodes.length}
+							isDataStore={!graph.nodes.find((node) => node.id === focusRoot)?.metrics}
+							onDirectionChange={setFocusDirection}
+							onExit={exitFocus}
+						/>
 					)}
 					<ServiceMapCanvas
 						fgRef={fgRef}
@@ -87,9 +146,13 @@ function ServiceMapWorkspace({
 						height={height}
 						insets={insets}
 						selectedId={selected ?? undefined}
-						onNodeClick={setSelected}
+						highlighted={highlighted}
+						onNodeClick={clickNode}
 					/>
 					<ServiceMapLegend ref={setLegend} />
+					<div className={styles.srOnly} aria-live="polite">
+						{announcement}
+					</div>
 				</div>
 			</ResizablePanel>
 			{selected && (
@@ -110,8 +173,26 @@ function ServiceMapWorkspace({
 							scopeLabels={scopeLabels}
 							minTime={minTime}
 							maxTime={maxTime}
-							onSelect={selectAndCenter}
-							onClose={(): void => setSelected(null)}
+							actions={[
+								{
+									key: 'focus',
+									component: (
+										<Button
+											variant={focusRoot === selected ? 'solid' : 'ghost'}
+											color="secondary"
+											size="sm"
+											prefix={<Focus />}
+											onClick={toggleFocus}
+											aria-pressed={focusRoot === selected}
+											testId="service-map-panel-focus"
+										>
+											{`${SERVICE_MAP_TEXT.focus} (F)`}
+										</Button>
+									),
+								},
+							]}
+							onSelect={(id): void => selectAndCenter(id)}
+							onClose={(): void => select(null)}
 						/>
 					</ResizablePanel>
 				</>

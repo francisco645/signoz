@@ -20,6 +20,10 @@ export const PANEL_SIZE = {
 } as const;
 
 export const MAX_NEIGHBOUR_ROWS = 8;
+export const MAX_SEARCH_RESULTS = 8;
+export const SEARCH_ZOOM = 2;
+/** Search bar over the canvas, kept clear when fitting the graph. */
+export const TOOLBAR_HEIGHT_PX = 48;
 
 export const CHARGE_STRENGTH = -400;
 export const WARMUP_TICKS = 50;
@@ -142,6 +146,30 @@ export const SERVICE_MAP_TEXT = {
 	panelClearSelection: 'Clear selection',
 	panelService: 'Service',
 	panelDataStore: 'Database or queue',
+	searchPlaceholder: 'Search services…',
+	searchNoResults: (query: string): string => `No service matches "${query}".`,
+	searchFooter: '↑↓ to move · Enter to select · Esc to close',
+	focus: 'Focus',
+	exitFocus: 'Exit focus',
+	focusUp: 'Upstream',
+	focusDown: 'Downstream',
+	focusBoth: 'Both',
+	focusBanner: (root: string, visible: number, total: number): string =>
+		`Focused on ${root} · ${visible} of ${total} services`,
+	focusDataStore: (root: string): string =>
+		`All instances of ${root} are summed in one node.`,
+	focusShowList: 'Show list',
+	focusHideList: 'Hide list',
+	focusCopyNames: 'Copy names',
+	focusCopied: 'Names copied.',
+	canvasLabel:
+		'Service map. Press / to search, F to focus the selected service, Esc to step back.',
+	announceSelection: (
+		id: string,
+		health: string,
+		callers: number,
+		callees: number,
+	): string => `${id}, ${health}, ${callers} callers, ${callees} callees`,
 	zoomIn: 'Zoom in',
 	zoomOut: 'Zoom out',
 	zoomFit: 'Fit to screen',

@@ -183,6 +183,51 @@ describe('ServiceMap', () => {
 		expect(screen.getByTestId('service-map-panel-link-service')).toBeDisabled();
 	});
 
+	it('searches a service, focuses its dependencies and lists them', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		server.use(
+			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
+				res(
+					ctx.status(200),
+					ctx.json([
+						...dependencies,
+						{ ...dependencies[0], parent: 'gateway', child: 'frontend' },
+						{ ...dependencies[0], parent: 'cart', child: 'redis' },
+					]),
+				),
+			),
+		);
+
+		openWithFilters([environmentFilter(['prod'])]);
+		await screen.findByTestId('force-graph');
+
+		await user.type(screen.getByTestId('service-map-search'), 'car');
+		await user.click(await screen.findByTestId('service-map-search-option-cart'));
+		await expect(
+			screen.findByTestId('service-map-panel'),
+		).resolves.toHaveTextContent('cart');
+
+		await user.click(screen.getByTestId('service-map-panel-focus'));
+		await expect(
+			screen.findByTestId('service-map-focus-banner'),
+		).resolves.toHaveTextContent('Focused on cart · 4 of 4 services');
+
+		await user.click(screen.getByTestId('service-map-focus-up'));
+		await expect(
+			screen.findByTestId('service-map-focus-banner'),
+		).resolves.toHaveTextContent('3 of 4 services');
+
+		await user.click(screen.getByTestId('service-map-focus-list-toggle'));
+		expect(screen.getByTestId('service-map-focus-list')).toHaveTextContent(
+			'Services that depend on cart (2): 1 hop: frontend 2 hops: gateway',
+		);
+
+		await user.click(screen.getByTestId('service-map-focus-exit'));
+		expect(
+			screen.queryByTestId('service-map-focus-banner'),
+		).not.toBeInTheDocument();
+	});
+
 	it('shows the empty state when no service calls another', async () => {
 		server.use(
 			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
