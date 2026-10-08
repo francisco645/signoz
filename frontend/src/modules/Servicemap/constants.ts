@@ -7,6 +7,20 @@ export const CRITICAL_ERROR_RATE = 5;
 /** Below this many calls in the window, an error rate is not classified. */
 export const MIN_CALLS = 20;
 
+export const URL_PARAMS = {
+	selected: 'selected',
+	focus: 'focus',
+	focusDirection: 'focusDir',
+} as const;
+
+export const PANEL_SIZE = {
+	default: '400px',
+	min: '340px',
+	max: '50%',
+} as const;
+
+export const MAX_NEIGHBOUR_ROWS = 8;
+
 export const CHARGE_STRENGTH = -400;
 export const WARMUP_TICKS = 50;
 export const COOLDOWN_TICKS = 100;
@@ -103,6 +117,31 @@ export const SERVICE_MAP_TEXT = {
 		'A service that is down appears as low traffic or disappears, and the services calling it turn red.',
 		'Calls to databases and queues are measured by the caller, so they stay on the map and turn red when the database fails. "postgresql" is the technology, not a specific instance.',
 	],
+	panelRequests: 'Requests',
+	panelErrorRate: 'Error rate',
+	panelP99: 'p99 (server side)',
+	panelVsYesterday: 'vs same window yesterday',
+	panelNoYesterday: 'No data yesterday',
+	panelTooFewCalls: 'Too few calls to classify.',
+	panelNoServerData:
+		'No server-side data. This node has no spans of its own in the window, like a database or a client-only service.',
+	panelBlindSpot: "Calls that never reached a server span aren't shown here.",
+	panelCallers: 'Callers',
+	panelCallees: 'Callees',
+	panelNoCallers: 'No callers in this time range.',
+	panelNoCallees: 'No callees in this time range.',
+	panelP99Footnote: '* p99 is measured on the callee (server side).',
+	panelShowAll: (count: number): string => `Show all (${count})`,
+	panelOpenService: 'Open service',
+	panelTraces: 'Traces',
+	panelErrorTraces: 'Error traces',
+	panelLogs: 'Logs',
+	panelNotAService: 'This node is a technology, not an instrumented service.',
+	panelGone: (service: string): string =>
+		`${service} has no calls in this time range.`,
+	panelClearSelection: 'Clear selection',
+	panelService: 'Service',
+	panelDataStore: 'Database or queue',
 	zoomIn: 'Zoom in',
 	zoomOut: 'Zoom out',
 	zoomFit: 'Fit to screen',

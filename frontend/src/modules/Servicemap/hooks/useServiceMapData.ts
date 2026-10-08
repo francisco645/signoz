@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 // eslint-disable-next-line no-restricted-imports
 import { useSelector } from 'react-redux';
 import { IResourceAttribute } from 'hooks/useResourceAttribute/types';
-import { filterServiceMapSupportedQueries } from 'hooks/useResourceAttribute/utils';
 import { AppState } from 'store/reducers';
 import APIError from 'types/api/error';
+import type { ServicesList } from 'types/api/metrics/getService';
 import { GlobalReducer } from 'types/reducer/globalTime';
 
 import type { ServiceMapGraph } from '../types';
@@ -14,6 +14,9 @@ import { useServiceMetrics } from './useServiceMetrics';
 
 interface ServiceMapData {
 	graph?: ServiceMapGraph;
+	services: ReadonlyMap<string, ServicesList>;
+	minTime: number;
+	maxTime: number;
 	error: APIError | null;
 	isLoading: boolean;
 	isFetching: boolean;
@@ -22,16 +25,13 @@ interface ServiceMapData {
 	refetch: () => void;
 }
 
+/** `queries` are the filters the service map API applies. */
 export const useServiceMapData = (
-	queries: IResourceAttribute[],
+	supportedQueries: IResourceAttribute[],
 	enabled: boolean,
 ): ServiceMapData => {
 	const { minTime, maxTime } = useSelector<AppState, GlobalReducer>(
 		(state) => state.globalTime,
-	);
-	const supportedQueries = useMemo(
-		() => filterServiceMapSupportedQueries(queries),
-		[queries],
 	);
 
 	const dependencies = useDependencyGraph({
@@ -48,9 +48,19 @@ export const useServiceMapData = (
 	});
 
 	const graph = useServiceMapGraph(dependencies.data, services.data);
+	const servicesByName = useMemo(
+		() =>
+			new Map(
+				(services.data ?? []).map((service) => [service.serviceName, service]),
+			),
+		[services.data],
+	);
 
 	return {
 		graph,
+		services: servicesByName,
+		minTime,
+		maxTime,
 		error: dependencies.error,
 		isLoading: dependencies.isLoading,
 		isFetching: dependencies.isFetching || services.isFetching,

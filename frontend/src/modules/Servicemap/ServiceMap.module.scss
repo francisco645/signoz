@@ -11,22 +11,3 @@
 	min-height: 0;
 	overflow: hidden;
 }
-
-.graph {
-	position: absolute;
-	inset: 0;
-	transition: opacity 0.2s ease;
-
-	&.isUpdating {
-		opacity: 0.6;
-	}
-}
-
-.status {
-	position: absolute;
-	top: var(--spacing-4);
-	left: var(--spacing-4);
-	z-index: 1;
-	color: var(--l2-foreground);
-	font-size: var(--periscope-font-size-small);
-}
