@@ -8,6 +8,7 @@ import type {
 	Tags,
 } from 'hooks/useResourceAttribute/types';
 import { getResourceDeploymentKeys } from 'hooks/useResourceAttribute/utils';
+import type { ServicesList } from 'types/api/metrics/getService';
 import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
 import type {
 	TagKeysPayloadProps,
@@ -224,27 +225,140 @@ const matchesTag = (dependency: Dependency, tag: Tags): boolean => {
 	return tag.Operator === 'NotIn' ? !matched : matched;
 };
 
+export const TOPOLOGIES = ['demo', 'large'] as const;
+
+export type Topology = (typeof TOPOLOGIES)[number];
+
 interface DependencyGraphOptions {
+	topology: Topology;
 	count: number;
 	health: ServiceHealth;
 	tags?: Tags[];
 }
 
+const LARGE_SERVICES = 500;
+const LARGE_DEPENDENCIES = 1500;
+
+/** Deterministic pseudo-random sequence, so the large topology is the same on every load. */
+const sequence = (seed: number): (() => number) => {
+	let state = seed;
+	return (): number => {
+		state = (state * 1_664_525 + 1_013_904_223) % 2 ** 32;
+		return state / 2 ** 32;
+	};
+};
+
+const largeServiceName = (index: number): string =>
+	`svc-${String(index).padStart(3, '0')}`;
+
+/**
+ * 500 services and 1,500 calls: a tree so every service is reachable, plus
+ * random calls on top. It is the size the map has to stay usable at.
+ */
+const largeTopology = (): ServiceMapDependency[] => {
+	const random = sequence(42);
+	const seen = new Set<string>();
+	const dependencies: ServiceMapDependency[] = [];
+
+	const add = (parent: number, child: number): void => {
+		const key = `${parent}>${child}`;
+		if (parent === child || seen.has(key)) {
+			return;
+		}
+		seen.add(key);
+		const callCount = Math.round(10 + random() * 20_000);
+		const roll = random();
+		let errorRate = 0;
+		if (roll < 0.03) {
+			errorRate = 8;
+		} else if (roll < 0.08) {
+			errorRate = 2;
+		}
+		dependencies.push({
+			parent: largeServiceName(parent),
+			child: largeServiceName(child),
+			callCount,
+			callRate: callCount / 1800,
+			errorRate,
+			p99: Math.round(2_000_000 + random() * 400_000_000),
+		});
+	};
+
+	for (let child = 1; child < LARGE_SERVICES; child += 1) {
+		add(Math.floor(random() * child), child);
+	}
+	while (dependencies.length < LARGE_DEPENDENCIES) {
+		add(
+			Math.floor(random() * LARGE_SERVICES),
+			Math.floor(random() * LARGE_SERVICES),
+		);
+	}
+
+	return dependencies;
+};
+
 export const dependencyGraphResponse = ({
+	topology,
 	count,
 	health,
 	tags = [],
 }: DependencyGraphOptions): ServiceMapDependency[] =>
-	DEPENDENCIES.slice(0, count)
-		.filter((dependency) => tags.every((tag) => matchesTag(dependency, tag)))
-		.map(({ parent, child, callCount, callRate, p99 }, index) => ({
-			parent,
-			child,
-			callCount,
-			callRate,
-			p99,
-			errorRate: errorRateFor(child, health, index),
-		}));
+	topology === 'large'
+		? largeTopology()
+		: DEPENDENCIES.slice(0, count)
+				.filter((dependency) => tags.every((tag) => matchesTag(dependency, tag)))
+				.map(({ parent, child, callCount, callRate, p99 }, index) => ({
+					parent,
+					child,
+					callCount,
+					callRate,
+					p99,
+					errorRate: errorRateFor(child, health, index),
+				}));
+
+/** Databases and caches have no spans of their own, so `/services` never lists them. */
+const DATA_STORES = ['mysql', 'redis'];
+
+/**
+ * RED per service, as `/api/v2/services` reports it: what the callers saw on the
+ * way in, plus the root's own traffic for the gateway, which nothing calls.
+ */
+export const servicesResponse = (
+	options: DependencyGraphOptions,
+): { status: string; data: ServicesList[] } => {
+	const dependencies = dependencyGraphResponse(options);
+	const totals = new Map<
+		string,
+		{ calls: number; errors: number; p99: number }
+	>();
+
+	dependencies.forEach(({ parent, child, callCount, errorRate, p99 }) => {
+		const callee = totals.get(child) ?? { calls: 0, errors: 0, p99: 0 };
+		callee.calls += callCount;
+		callee.errors += (callCount * errorRate) / 100;
+		callee.p99 = Math.max(callee.p99, p99);
+		totals.set(child, callee);
+
+		if (!totals.has(parent)) {
+			totals.set(parent, { calls: callCount, errors: 0, p99 });
+		}
+	});
+
+	return {
+		status: 'success',
+		data: [...totals.entries()]
+			.filter(([serviceName]) => !DATA_STORES.includes(serviceName))
+			.map(([serviceName, { calls, errors, p99 }]) => ({
+				serviceName,
+				numCalls: calls,
+				numErrors: Math.round(errors),
+				errorRate: calls > 0 ? (errors / calls) * 100 : 0,
+				callRate: calls / 1800,
+				p99,
+				avgDuration: p99 / 3,
+			})),
+	};
+};
 
 const ENVIRONMENT_KEY = 'resource_deployment_environment';
 const CLUSTER_KEY = 'resource_k8s_cluster_name';
