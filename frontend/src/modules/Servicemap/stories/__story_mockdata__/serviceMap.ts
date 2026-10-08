@@ -9,6 +9,7 @@ import type {
 } from 'hooks/useResourceAttribute/types';
 import { getResourceDeploymentKeys } from 'hooks/useResourceAttribute/utils';
 import type { ServicesList } from 'types/api/metrics/getService';
+import { STREAMING_DATA_STORES, streamingTopology } from './streamingTopology';
 import type { ServiceMapDependency } from 'types/api/serviceMap/getDependencyGraph';
 import type {
 	TagKeysPayloadProps,
@@ -234,7 +235,7 @@ const matchesTag = (dependency: Dependency, tag: Tags): boolean => {
 	return tag.Operator === 'NotIn' ? !matched : matched;
 };
 
-export const TOPOLOGIES = ['demo', 'large'] as const;
+export const TOPOLOGIES = ['demo', 'large', 'streaming'] as const;
 
 export type Topology = (typeof TOPOLOGIES)[number];
 
@@ -312,8 +313,8 @@ export const dependencyGraphResponse = ({
 	health,
 	tags = [],
 }: DependencyGraphOptions): ServiceMapDependency[] =>
-	topology === 'large'
-		? largeTopology()
+	topology === 'large' || topology === 'streaming'
+		? { large: largeTopology, streaming: streamingTopology }[topology]()
 		: DEPENDENCIES.slice(0, count)
 				.filter((dependency) => tags.every((tag) => matchesTag(dependency, tag)))
 				.map(({ parent, child, callCount, callRate, p99 }, index) => ({
@@ -326,7 +327,7 @@ export const dependencyGraphResponse = ({
 				}));
 
 /** Databases and caches have no spans of their own, so `/services` never lists them. */
-const DATA_STORES = ['mysql', 'redis', 'kafka'];
+const DATA_STORES = ['mysql', 'redis', 'kafka', ...STREAMING_DATA_STORES];
 
 /** Yesterday's window: fewer errors and faster, so today's deltas have something to show. */
 const YESTERDAY = { calls: 1.05, errors: 0.25, p99: 0.7 };

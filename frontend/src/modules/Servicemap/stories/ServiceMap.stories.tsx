@@ -61,6 +61,14 @@ export const Panorama: Story = {
 	args: { panorama: true },
 };
 
+/**
+ * A video streaming platform mid-incident, in 3D: licences fail and take
+ * playback down with them, while a cache cluster runs hot.
+ */
+export const StreamingPlatform: Story = {
+	args: { topology: 'streaming', panorama: true },
+};
+
 /** 500 services and 1,500 calls: the acceptance check for pan, zoom and first draw. */
 export const LargeTopology: Story = {
 	args: { topology: 'large' },
