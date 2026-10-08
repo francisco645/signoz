@@ -48,5 +48,13 @@ export const getServiceMapScope = (
 		ignoredFilters: queries
 			.filter((query) => !whilelistedKeys.includes(query.tagKey))
 			.map(formatFilter),
+		labels: [
+			...new Set(
+				queries
+					.filter((query) => whilelistedKeys.includes(query.tagKey))
+					.filter(isNarrowing)
+					.flatMap((query) => query.tagValue),
+			),
+		],
 	};
 };

@@ -12,11 +12,22 @@ jest.mock('react-force-graph-2d', () => ({
 	__esModule: true,
 	default: ({
 		graphData,
+		onNodeClick,
 	}: {
 		graphData: { nodes: { id: string }[] };
+		onNodeClick?: (node: { id: string }) => void;
 	}): JSX.Element => (
 		<div data-testid="force-graph">
-			{graphData.nodes.map((node) => node.id).join(',')}
+			{graphData.nodes.map((node) => (
+				<button
+					key={node.id}
+					type="button"
+					data-testid={`node-${node.id}`}
+					onClick={(): void => onNodeClick?.(node)}
+				>
+					{node.id}
+				</button>
+			))}
 		</div>
 	),
 }));
@@ -119,8 +130,57 @@ describe('ServiceMap', () => {
 
 		expect(screen.getByTestId('service-map-loading')).toBeInTheDocument();
 		await expect(screen.findByTestId('force-graph')).resolves.toHaveTextContent(
-			'cart,frontend',
+			'cartfrontend',
 		);
+	});
+
+	it('inspects a service in the side panel', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		server.use(
+			rest.post(DEPENDENCY_GRAPH_URL, (_req, res, ctx) =>
+				res(ctx.status(200), ctx.json(dependencies)),
+			),
+			rest.post('*/api/v2/services', (_req, res, ctx) =>
+				res(
+					ctx.status(200),
+					ctx.json({
+						status: 'success',
+						data: [
+							{
+								serviceName: 'cart',
+								numCalls: 1000,
+								numErrors: 70,
+								errorRate: 7,
+								callRate: 1,
+								p99: 2_400_000_000,
+								avgDuration: 1,
+							},
+						],
+					}),
+				),
+			),
+		);
+
+		openWithFilters([environmentFilter(['prod'])]);
+		await user.click(await screen.findByTestId('node-cart'));
+
+		const panel = await screen.findByTestId('service-map-panel');
+		expect(panel).toHaveTextContent('cart');
+		await expect(
+			screen.findByTestId('service-map-panel-health'),
+		).resolves.toHaveTextContent('Critical · 7.0% errors');
+		expect(
+			screen.getByTestId('service-map-neighbour-callers-frontend'),
+		).toBeInTheDocument();
+		expect(screen.getByTestId('service-map-panel-link-traces')).toBeEnabled();
+
+		await user.click(
+			screen.getByTestId('service-map-neighbour-callers-frontend'),
+		);
+		await expect(
+			screen.findByTestId('service-map-panel-health'),
+		).resolves.toHaveTextContent('No server-side data');
+		expect(screen.getByTestId('service-map-panel-link-service')).toBeDisabled();
 	});
 
 	it('shows the empty state when no service calls another', async () => {

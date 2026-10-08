@@ -15,6 +15,7 @@ describe('getServiceMapScope', () => {
 			hasScope: false,
 			isMixedEnvironments: false,
 			ignoredFilters: [],
+			labels: [],
 		});
 	});
 

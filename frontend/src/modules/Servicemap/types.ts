@@ -55,6 +55,8 @@ export interface ServiceMapScope {
 	isMixedEnvironments: boolean;
 	/** Filters the service map API drops, formatted for display. */
 	ignoredFilters: string[];
+	/** Environment, cluster and namespace values the map is narrowed to. */
+	labels: string[];
 }
 
 export interface ServiceMapPalette {
