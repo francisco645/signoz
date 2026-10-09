@@ -11,11 +11,15 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import type { ServiceMapGraph } from '../types';
 import { linkEndId } from '../utils/adjacency';
 import type { LayoutPoint } from '../utils/panoramaLayout';
+import type { ResolvedPlane } from '../utils/planes';
 import PanoramaControls from './PanoramaControls';
 import PanoramaLegend from './PanoramaLegend';
 import PanoramaSummary from './PanoramaSummary';
 import type { PanoramaView as CameraView } from './scene/cameraPoses';
-import { buildPanoramaModel } from './scene/panoramaModel';
+import {
+	buildPanoramaModel,
+	getPanoramaPositions,
+} from './scene/panoramaModel';
 import { getPanoramaTheme } from './scene/panoramaTheme';
 import type { PanoramaHit } from './scene/pointer';
 import { describePanorama, PANORAMA_TEXT } from './panoramaText';
@@ -25,6 +29,9 @@ import styles from './Panorama.module.scss';
 
 interface PanoramaViewProps {
 	graph: ServiceMapGraph;
+	planes: ReadonlyMap<string, ResolvedPlane>;
+	adjustedCount: number;
+	onResetPlanes: () => void;
 	width: number;
 	height: number;
 	windowLabel: string;
@@ -44,6 +51,9 @@ const LEGEND_INSET_MIN_WIDTH_PX = 900;
 /** The 3D panorama: entry, internal and data planes, read-only apart from opening a service. */
 function PanoramaView({
 	graph,
+	planes,
+	adjustedCount,
+	onResetPlanes,
 	width,
 	height,
 	windowLabel,
@@ -62,15 +72,17 @@ function PanoramaView({
 	const [isAutoRotating, setIsAutoRotating] = useState(true);
 	const [hover, setHover] = useState<Hover>();
 
-	const model = useMemo(
-		() => buildPanoramaModel(graph, previousLayout.current),
+	const positions = useMemo(
+		() => getPanoramaPositions(graph, previousLayout.current),
 		[graph],
 	);
 	useEffect(() => {
-		previousLayout.current = new Map(
-			model.nodes.map((node) => [node.id, { x: node.x, y: node.y }]),
-		);
-	}, [model]);
+		previousLayout.current = positions;
+	}, [positions]);
+	const model = useMemo(
+		() => buildPanoramaModel(graph, positions, planes),
+		[graph, planes, positions],
+	);
 	const theme = getPanoramaTheme(isDarkMode);
 	const nodesById = useMemo(
 		() => new Map(graph.nodes.map((node) => [node.id, node])),
@@ -138,7 +150,13 @@ function PanoramaView({
 				onAutoRotateChange={setIsAutoRotating}
 			/>
 			<PanoramaSummary model={model} windowLabel={windowLabel} />
-			<PanoramaLegend ref={setLegend} model={model} theme={theme} />
+			<PanoramaLegend
+				ref={setLegend}
+				model={model}
+				theme={theme}
+				adjustedCount={adjustedCount}
+				onResetPlanes={onResetPlanes}
+			/>
 			<div className={cx(styles.card, styles.hint)}>{PANORAMA_TEXT.hint}</div>
 			<div className={styles.srOnly} aria-live="polite">
 				{describePanorama(model)}

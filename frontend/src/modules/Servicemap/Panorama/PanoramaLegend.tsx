@@ -11,13 +11,15 @@ import EdgeGlyph from './EdgeGlyph';
 import ShapeGlyph from './ShapeGlyph';
 import type { PanoramaModel } from './scene/panoramaModel';
 import type { PanoramaTheme } from './scene/panoramaTheme';
-import { PANORAMA_TEXT, PANORAMA_TIER_TEXT } from './panoramaText';
+import { PANORAMA_TEXT, PANORAMA_TIER_TEXT, PLANE_TEXT } from './panoramaText';
 
 import styles from './Panorama.module.scss';
 
 interface PanoramaLegendProps {
 	model: PanoramaModel;
 	theme: PanoramaTheme;
+	adjustedCount: number;
+	onResetPlanes: () => void;
 }
 
 const SHAPES: { kind: NodeKind; label: string }[] = [
@@ -31,7 +33,10 @@ const capitalize = (text: string): string =>
 	text.charAt(0) + text.slice(1).toLowerCase();
 
 const PanoramaLegend = forwardRef<HTMLElement, PanoramaLegendProps>(
-	function PanoramaLegend({ model, theme }, ref): JSX.Element {
+	function PanoramaLegend(
+		{ model, theme, adjustedCount, onResetPlanes },
+		ref,
+	): JSX.Element {
 		const [isCollapsed, toggle] = useLegendCollapsed();
 		const health = [
 			{ color: theme.neutralNode, label: PANORAMA_TEXT.healthy },
@@ -127,6 +132,20 @@ const PanoramaLegend = forwardRef<HTMLElement, PanoramaLegendProps>(
 								</div>
 							))}
 							<div className={styles.muted}>{PANORAMA_TEXT.tierRule}</div>
+							{adjustedCount > 0 && (
+								<div className={styles.row}>
+									<span>{`${PLANE_TEXT.adjustedCount(adjustedCount)} *`}</span>
+									<Button
+										variant="link"
+										color="secondary"
+										size="sm"
+										onClick={onResetPlanes}
+										testId="panorama-reset-planes"
+									>
+										{PLANE_TEXT.reset}
+									</Button>
+								</div>
+							)}
 						</div>
 					</>
 				)}

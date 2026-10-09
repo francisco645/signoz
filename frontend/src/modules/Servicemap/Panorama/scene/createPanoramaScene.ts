@@ -149,7 +149,7 @@ export const createPanoramaScene = (
 		// Particles keep the scene moving; with reduced motion it only draws on change.
 		const isMoving = !reduceMotion || tweens.size > 0 || controls.autoRotate;
 		if (world && (isMoving || isDirty)) {
-			placeWorld(world, flat, reduceMotion ? 0 : elapsedS);
+			placeWorld(world, flat, reduceMotion ? 0 : elapsedS, reduceMotion);
 			renderer.render(scene, camera);
 			isDirty = false;
 		}
@@ -180,9 +180,12 @@ export const createPanoramaScene = (
 			}
 			shownModel = model;
 			const isFirst = !world;
+			const heights = new Map(
+				[...(world?.nodes ?? [])].map(([id, node]) => [id, node.height]),
+			);
 			removeWorld();
 			pointer.reset();
-			world = buildWorld(model, theme, options.tierText);
+			world = buildWorld(model, theme, options.tierText, heights);
 			world.nodes.get(selectedId ?? '')?.setSelected(true);
 			scene.add(world.root);
 			isDirty = true;

@@ -7,6 +7,8 @@ export interface PanoramaNode {
 	id: string;
 	kind: NodeKind;
 	tier: PanoramaTier;
+	/** You moved it to this plane. */
+	isAdjusted: boolean;
 	band: HealthBand;
 	/** Calls per second into the node, or out of it when nothing calls it. */
 	callRate: number;
@@ -31,38 +33,54 @@ export type PanoramaHealth = 'neutral' | 'degraded' | 'critical';
 export const getPanoramaHealth = (band: HealthBand): PanoramaHealth =>
 	band === 'critical' || band === 'degraded' ? band : 'neutral';
 
-/** The 2D graph as the panorama draws it: a plane and an x/y per node. */
-export const buildPanoramaModel = (
-	graph: ServiceMapGraph,
-	previous?: ReadonlyMap<string, LayoutPoint>,
-): PanoramaModel => {
-	const tiers = getNodeTiers(graph);
-	const links = graph.links.map((link) => ({
+const toPanoramaLinks = (graph: ServiceMapGraph): PanoramaLink[] =>
+	graph.links.map((link) => ({
 		source: linkEndId(link.source),
 		target: linkEndId(link.target),
 		callRate: link.callRate,
 		colorBand: link.colorBand,
 	}));
-	const outgoing = new Map<string, number>();
-	links.forEach((link) =>
-		outgoing.set(link.source, (outgoing.get(link.source) ?? 0) + link.callRate),
-	);
-	const layout = getPanoramaLayout(
+
+/**
+ * x/y per node from the inferred planes only, so moving a service to another
+ * plane changes its height and leaves every other node where it was.
+ */
+export const getPanoramaPositions = (
+	graph: ServiceMapGraph,
+	previous?: ReadonlyMap<string, LayoutPoint>,
+): Map<string, LayoutPoint> => {
+	const tiers = getNodeTiers(graph);
+	return getPanoramaLayout(
 		graph.nodes.map((node) => ({
 			id: node.id,
 			tier: tiers.get(node.id) ?? 'internal',
 		})),
-		links,
+		toPanoramaLinks(graph),
 		previous,
+	);
+};
+
+/** The 2D graph as the panorama draws it: a plane and an x/y per node. */
+export const buildPanoramaModel = (
+	graph: ServiceMapGraph,
+	positions: ReadonlyMap<string, LayoutPoint>,
+	planes: ReadonlyMap<string, { tier: PanoramaTier; source: string }>,
+): PanoramaModel => {
+	const links = toPanoramaLinks(graph);
+	const outgoing = new Map<string, number>();
+	links.forEach((link) =>
+		outgoing.set(link.source, (outgoing.get(link.source) ?? 0) + link.callRate),
 	);
 
 	return {
 		nodes: graph.nodes.map((node) => {
-			const point = layout.get(node.id) ?? { x: 0, y: 0 };
+			const point = positions.get(node.id) ?? { x: 0, y: 0 };
+			const plane = planes.get(node.id);
 			return {
 				id: node.id,
 				kind: node.kind,
-				tier: tiers.get(node.id) ?? 'internal',
+				tier: plane?.tier ?? 'internal',
+				isAdjusted: plane?.source === 'adjusted',
 				band: node.band,
 				callRate:
 					node.metrics?.callRate ||

@@ -26,6 +26,8 @@ export interface WorldNode extends NodeObject {
 	x: number;
 	y: number;
 	tier: PanoramaTier;
+	/** Current plane height; it eases to the tier's when the plane changes. */
+	height: number;
 }
 
 export interface World {
@@ -45,6 +47,8 @@ export const buildWorld = (
 	model: PanoramaModel,
 	theme: PanoramaTheme,
 	tierText: Record<PanoramaTier, TierText>,
+	/** Heights from the world this one replaces, so a moved node slides. */
+	previousHeights: ReadonlyMap<string, number> = new Map(),
 ): World => {
 	const root = new Group();
 	const geometries = createSharedGeometries();
@@ -63,7 +67,13 @@ export const buildWorld = (
 	const hitTargets: Mesh[] = [];
 	model.nodes.forEach((node) => {
 		const object = createNodeObject(node, theme, geometries);
-		nodes.set(node.id, { ...object, x: node.x, y: node.y, tier: node.tier });
+		nodes.set(node.id, {
+			...object,
+			x: node.x,
+			y: node.y,
+			tier: node.tier,
+			height: previousHeights.get(node.id) ?? TIER_HEIGHT[node.tier],
+		});
 		hitTargets.push(...object.hitTargets);
 		root.add(object.group);
 	});
@@ -86,15 +96,24 @@ export const buildWorld = (
 	};
 };
 
+/** Plane heights a moved node covers per second, as a share of the gap left. */
+const SLIDE_RATE = 6;
+
 /** `flat` runs from 0 (planes apart) to 1 (every node on one plane). */
 export const placeWorld = (
 	world: World,
 	flat: number,
 	elapsedS: number,
+	isInstant: boolean,
 ): void => {
-	world.nodes.forEach((node) =>
-		node.group.position.set(node.x, TIER_HEIGHT[node.tier] * (1 - flat), node.y),
-	);
+	world.nodes.forEach((node) => {
+		const target = TIER_HEIGHT[node.tier];
+		// eslint-disable-next-line no-param-reassign
+		node.height = isInstant
+			? target
+			: node.height + (target - node.height) * Math.min(1, elapsedS * SLIDE_RATE);
+		node.group.position.set(node.x, node.height * (1 - flat), node.y);
+	});
 	placeTierPlanes(world.planes, flat);
 	world.links.place((link) => {
 		const from = world.nodes.get(link.source);

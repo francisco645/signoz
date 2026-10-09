@@ -1,6 +1,7 @@
 import type { ServiceMapGraph } from '../../../types';
 import {
 	buildPanoramaModel,
+	getPanoramaPositions,
 	getPanoramaHealth,
 	getPanoramaParticleCount,
 	getPanoramaParticlePace,
@@ -45,7 +46,14 @@ const graph: ServiceMapGraph = {
 
 describe('buildPanoramaModel', () => {
 	it('puts each node on its plane with its traffic and a position', () => {
-		const model = buildPanoramaModel(graph);
+		const model = buildPanoramaModel(
+			graph,
+			getPanoramaPositions(graph),
+			new Map([
+				['gateway', { tier: 'entry' as const, source: 'inferred' }],
+				['mysql', { tier: 'data' as const, source: 'inferred' }],
+			]),
+		);
 		expect(
 			model.nodes.map(({ id, tier, callRate, band }) => ({
 				id,
@@ -81,5 +89,13 @@ describe('panorama encodings', () => {
 			getPanoramaParticlePace(1),
 		);
 		expect(getPanoramaParticlePace(1_000_000)).toBe(getPanoramaParticlePace(100));
+	});
+});
+
+describe('getPanoramaPositions', () => {
+	it('places nodes from the inferred planes only', () => {
+		expect(getPanoramaPositions(graph)).toStrictEqual(
+			getPanoramaPositions(graph),
+		);
 	});
 });

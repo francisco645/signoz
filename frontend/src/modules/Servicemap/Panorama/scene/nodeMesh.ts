@@ -119,7 +119,8 @@ const createLabel = (
 	health: PanoramaHealth,
 	theme: PanoramaTheme,
 ): Sprite => {
-	const label = createTextSprite(node.id, {
+	// The asterisk marks a plane you chose; the panel says so in words.
+	const label = createTextSprite(node.isAdjusted ? `${node.id} *` : node.id, {
 		size: 22,
 		color: labelColor(health, theme),
 		halo: theme.labelHalo,

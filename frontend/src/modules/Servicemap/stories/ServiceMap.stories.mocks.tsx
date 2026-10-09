@@ -157,6 +157,29 @@ export const serviceMapMocks = defineStoryMocks({
 					res(ctx.status(500), ctx.json({ status: 'error' })),
 				),
 
+		// `frontend` declares its plane, so the 3D panel shows a declared one.
+		rest.post(
+			'http://localhost/api/v5/query_range',
+			response.json(() => ({
+				status: 'success',
+				data: {
+					type: 'scalar',
+					data: {
+						results: [
+							{
+								columns: [
+									{ name: 'service.name' },
+									{ name: 'signoz.service_map.layer' },
+									{ name: 'count()' },
+								],
+								data: [['frontend', 'entry', 1200]],
+							},
+						],
+					},
+				},
+			})),
+		),
+
 		rest.get(
 			'http://localhost/api/v3/autocomplete/attribute_keys',
 			response.json((req) =>

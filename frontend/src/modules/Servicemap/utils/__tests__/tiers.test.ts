@@ -1,5 +1,5 @@
 import type { ServiceMapLink, ServiceMapNode } from '../../types';
-import { getNodeTiers } from '../tiers';
+import { getInferredTiers, getNodeTiers } from '../tiers';
 
 const service = (id: string, calls = 0, incoming = 0): ServiceMapNode => ({
 	id,
@@ -74,5 +74,16 @@ describe('getNodeTiers', () => {
 			links: [link('worker', 'worker', 50)],
 		});
 		expect(tiers.get('worker')).toBe('entry');
+	});
+
+	it('explains why a service is internal', () => {
+		const tiers = getInferredTiers({
+			nodes: [service('gateway', 1000), service('cart', 200, 150)],
+			links: [link('gateway', 'cart', 150)],
+		});
+		expect(tiers.get('cart')).toStrictEqual({
+			tier: 'internal',
+			reason: { kind: 'calledBy', caller: 'gateway', share: 0.75 },
+		});
 	});
 });

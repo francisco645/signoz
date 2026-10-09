@@ -23,6 +23,7 @@ import FocusBanner from './Focus/FocusBanner';
 import { useAnimateDirection } from './hooks/useAnimateDirection';
 import { useContainerSize } from './hooks/useContainerSize';
 import { useMapView } from './hooks/useMapView';
+import { usePanoramaPlanes } from './hooks/usePanoramaPlanes';
 import { useServiceMapInteractions } from './hooks/useServiceMapInteractions';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import { useWindowLabel } from './hooks/useWindowLabel';
@@ -30,6 +31,7 @@ import { useYesterdayServices } from './hooks/useYesterdayServices';
 import ServiceMapLegend from './Legend/ServiceMapLegend';
 import ServiceNodePanel from './NodePanel/ServiceNodePanel';
 import PanoramaSlot from './Panorama/PanoramaSlot';
+import PlaneControl from './Panorama/PlaneControl';
 import CopyLinkButton from './Toolbar/CopyLinkButton';
 import MapViewToggle from './Toolbar/MapViewToggle';
 import ServiceSearch from './Toolbar/ServiceSearch';
@@ -92,6 +94,8 @@ function ServiceMapWorkspace({
 	const [mapView, setMapView] = useMapView();
 	const is3d = mapView === '3d' && is3dAvailable;
 	const windowLabel = useWindowLabel(minTime, maxTime);
+	const panoramaPlanes = usePanoramaPlanes(graph, minTime, maxTime, is3d);
+	const selectedPlane = panoramaPlanes.planes.get(selected ?? '');
 	const yesterday = useYesterdayServices(minTime, maxTime, queries, !!selected);
 
 	const insets = useMemo(
@@ -184,6 +188,9 @@ function ServiceMapWorkspace({
 								height={height}
 								windowLabel={windowLabel}
 								selectedId={selected ?? undefined}
+								planes={panoramaPlanes.planes}
+								adjustedCount={panoramaPlanes.adjustedCount}
+								onResetPlanes={panoramaPlanes.reset}
 								onNodeClick={select}
 								onError={(): void => {
 									setIs3dBroken(true);
@@ -272,7 +279,15 @@ function ServiceMapWorkspace({
 								}
 								onSelect={(id): void => selectAndCenter(id)}
 								onClose={closePanel}
-							/>
+							>
+								{is3d && selectedPlane && (
+									<PlaneControl
+										id={selected}
+										plane={selectedPlane}
+										onChange={(tier): void => panoramaPlanes.setPlane(selected, tier)}
+									/>
+								)}
+							</ServiceNodePanel>
 						</ResizablePanel>
 					</>
 				)}
