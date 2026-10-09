@@ -1,0 +1,32 @@
+.stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--spacing-16);
+	margin: var(--spacing-10) var(--spacing-1) 0;
+}
+
+.label {
+	color: var(--l2-foreground);
+	font-size: 12px;
+}
+
+.value {
+	color: var(--l1-foreground);
+	font:
+		500 28px/34px 'Geist Mono',
+		monospace;
+	letter-spacing: -0.02em;
+
+	small {
+		margin-left: var(--spacing-2);
+		color: var(--l3-foreground);
+		font:
+			13px Inter,
+			sans-serif;
+	}
+}
+
+.detail {
+	color: var(--l3-foreground);
+	font-size: 12px;
+}

@@ -13,9 +13,9 @@ type HomeArgs = PageStoryArgs<typeof homeMocks>;
 const pageStory = storyMocks(homeMocks, { route: ROUTES.HOME, layout: 'app' });
 
 /**
- * The workspace landing page: ingestion state per signal, the welcome checklist
- * while a signal is missing, then alert rules, dashboards, saved views and the
- * services table.
+ * The workspace landing page. With data it answers "is everything fine, and if
+ * not, how far does it reach?": a verdict, firing alerts, services against a
+ * week ago, the service map and telemetry. Without data, the welcome checklist.
  *
  * Route: `/home`.
  */
@@ -37,6 +37,39 @@ type Story = StoryObj<HomeArgs>;
  * services table with failing services.
  */
 export const Default: Story = {};
+
+/** Health overview, nothing wrong: three counts at zero, the whole map. */
+export const Normal: Story = {
+	args: { scenario: 'normal' },
+};
+
+/** A warning firing and one service above its usual errors: amber, not red. */
+export const Degraded: Story = {
+	args: { scenario: 'degraded' },
+};
+
+/**
+ * Two critical alerts, three services outside their usual range and logs at
+ * half of last week: the map focuses on the affected services and neighbours.
+ */
+export const Incident: Story = {
+	args: { scenario: 'incident' },
+};
+
+/** No traces for 14 minutes: health can't be confirmed; the map is the last known one, dashed. */
+export const Blind: Story = {
+	args: { scenario: 'blind' },
+};
+
+/** Alerts could not be read: the overview says so instead of "No issues". */
+export const AlertsUnavailable: Story = {
+	args: { scenario: 'normal', failingSources: ['alerts'] },
+};
+
+/** Critical alerts in staging leave production green. */
+export const OtherEnvironmentAlert: Story = {
+	args: { scenario: 'incident', alertEnvironment: 'staging' },
+};
 
 /** Fresh workspace: nothing ingested yet, so the welcome checklist takes over. */
 export const NoIngestion: Story = {

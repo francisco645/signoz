@@ -30,7 +30,23 @@ import {
 	spanMetricsResponse,
 	topLevelOperationsResponse,
 } from './__story_mockdata__/home';
+import {
+	ALERT_ENVIRONMENTS,
+	type AlertEnvironment,
+	alerts as overviewAlerts,
+	dependencyGraph,
+	FAILING_SOURCES,
+	type FailingSource,
+	lastTraces,
+	rules as overviewRules,
+	SCENARIOS,
+	type Scenario,
+	scalar,
+	services as overviewServices,
+	telemetry as overviewTelemetry,
+} from './__story_mockdata__/overview';
 
+const HEALTH = 'Home · health';
 const SIGNALS = 'Home · signals';
 const ONBOARDING = 'Home · onboarding';
 const LISTS = 'Home · lists';
@@ -45,8 +61,48 @@ const CHECKLIST_VISIBILITY = ['visible', 'dismissed'] as const;
 type ChecklistVisibility = (typeof CHECKLIST_VISIBILITY)[number];
 
 interface QueryRangeV5Body {
-	compositeQuery?: { queries?: { spec?: { signal?: string } }[] };
+	requestType?: string;
+	start?: number;
+	compositeQuery?: {
+		queries?: {
+			spec?: {
+				signal?: string;
+				stepInterval?: number;
+				groupBy?: { name: string }[];
+			};
+		}[];
+	};
 }
+
+interface ServicesBody {
+	start?: string;
+}
+
+const DAY_MS = 86_400_000;
+
+/** The overview's `query_range` calls, told apart by shape. */
+const overviewQueryOf = (
+	body: QueryRangeV5Body,
+):
+	| 'telemetry'
+	| 'lastTraces'
+	| 'environments'
+	| 'planes'
+	| 'hasTelemetry'
+	| undefined => {
+	const queries = body.compositeQuery?.queries ?? [];
+	const groupBy = queries[0]?.spec?.groupBy?.map((key) => key.name) ?? [];
+	if (body.requestType === 'time_series') {
+		return queries[0]?.spec?.stepInterval === 300 ? 'lastTraces' : 'telemetry';
+	}
+	if (groupBy.includes('deployment.environment')) {
+		return 'environments';
+	}
+	if (groupBy.includes('signoz.service_map.layer')) {
+		return 'planes';
+	}
+	return queries.length === 2 ? 'hasTelemetry' : undefined;
+};
 
 /**
  * Home detects logs and traces with one `query_range` call each, told apart by
@@ -57,6 +113,26 @@ const signalOf = (body: QueryRangeV5Body): string | undefined =>
 
 export const homeMocks = defineStoryMocks({
 	controls: {
+		scenario: choiceControl<Scenario>('Health', {
+			group: HEALTH,
+			description:
+				'The four states of the overview: what fires, what moved against last week, what stopped arriving.',
+			options: SCENARIOS,
+			value: 'normal',
+		}),
+		failingSources: multiChoiceControl<FailingSource>('Failing sources', {
+			group: HEALTH,
+			description:
+				'These answer 500: the overview must say so, never "No issues".',
+			options: FAILING_SOURCES,
+			value: [],
+		}),
+		alertEnvironment: choiceControl<AlertEnvironment>('Alert environment', {
+			group: HEALTH,
+			description: 'Alerts from another environment must not turn production red.',
+			options: ALERT_ENVIRONMENTS,
+			value: 'production',
+		}),
 		logsIngestion: toggleControl('Logs ingestion', {
 			group: SIGNALS,
 			value: true,
@@ -126,7 +202,45 @@ export const homeMocks = defineStoryMocks({
 		),
 
 		rest.post('http://localhost/api/v5/query_range', async (req, res, ctx) => {
-			const signal = signalOf((await req.json()) as QueryRangeV5Body);
+			const body = (await req.json()) as QueryRangeV5Body;
+			const overviewQuery = overviewQueryOf(body);
+			const failing = values.failingSources.includes('telemetry');
+			if (overviewQuery === 'telemetry') {
+				return failing
+					? res(ctx.status(500), ctx.json({ status: 'error' }))
+					: res(ctx.status(200), ctx.json(overviewTelemetry(values.scenario)));
+			}
+			if (overviewQuery === 'lastTraces') {
+				return res(ctx.status(200), ctx.json(lastTraces()));
+			}
+			if (overviewQuery === 'environments') {
+				return res(
+					ctx.status(200),
+					ctx.json(
+						scalar(
+							['deployment.environment', 'count()'],
+							[
+								['production', 900],
+								['staging', 120],
+							],
+						),
+					),
+				);
+			}
+			if (overviewQuery === 'planes') {
+				return res(
+					ctx.status(200),
+					ctx.json(
+						scalar(['service.name', 'signoz.service_map.layer', 'count()'], []),
+					),
+				);
+			}
+			if (overviewQuery === 'hasTelemetry') {
+				const count =
+					values.tracesIngestion || values.logsIngestion ? INGESTED_COUNT : 0;
+				return res(ctx.status(200), ctx.json(scalar(['count()'], [[count]])));
+			}
+			const signal = signalOf(body);
 
 			const isActive =
 				signal === 'traces' ? values.tracesIngestion : values.logsIngestion;
@@ -155,12 +269,36 @@ export const homeMocks = defineStoryMocks({
 			response.json(() => recentDashboardsResponse(values.dashboards)),
 		),
 
-		rest.get(
-			'http://localhost/api/v2/rules',
-			response.json(() => ({
-				status: 'success',
-				data: buildAlertRules(values.alertRules),
-			})),
+		rest.get('http://localhost/api/v2/rules', (_req, res, ctx) =>
+			values.failingSources.includes('rules')
+				? res(ctx.status(500), ctx.json({ status: 'error' }))
+				: res(
+						ctx.status(200),
+						ctx.json({
+							status: 'success',
+							data: values.tracesIngestion
+								? overviewRules(values.scenario)
+								: buildAlertRules(values.alertRules),
+						}),
+					),
+		),
+
+		rest.get('http://localhost/api/v1/alerts', (_req, res, ctx) =>
+			values.failingSources.includes('alerts')
+				? res(ctx.status(500), ctx.json({ status: 'error' }))
+				: res(
+						ctx.status(200),
+						ctx.json({
+							status: 'success',
+							data: overviewAlerts(values.scenario, values.alertEnvironment),
+						}),
+					),
+		),
+
+		rest.post('http://localhost/api/v1/dependency_graph', (_req, res, ctx) =>
+			values.failingSources.includes('map')
+				? res(ctx.status(500), ctx.json({ status: 'error' }))
+				: res(ctx.status(200), ctx.json(dependencyGraph(values.scenario))),
 		),
 
 		rest.get(
@@ -176,13 +314,22 @@ export const homeMocks = defineStoryMocks({
 			}),
 		),
 
-		rest.post(
-			'http://localhost/api/v2/services',
-			response.json(() => ({
-				status: 'success',
-				data: buildServices(values.services),
-			})),
-		),
+		rest.post('http://localhost/api/v2/services', async (req, res, ctx) => {
+			if (values.failingSources.includes('services')) {
+				return res(ctx.status(500), ctx.json({ status: 'error' }));
+			}
+			const body = (await req.json()) as ServicesBody;
+			const isWeekAgo = Number(body.start ?? 0) / 1e6 < Date.now() - 3 * DAY_MS;
+			return res(
+				ctx.status(200),
+				ctx.json({
+					status: 'success',
+					data: values.tracesIngestion
+						? overviewServices(values.scenario, isWeekAgo)
+						: buildServices(values.services),
+				}),
+			);
+		}),
 
 		rest.post(
 			'http://localhost/api/v1/service/top_level_operations',

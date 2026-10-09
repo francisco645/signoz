@@ -1,0 +1,8 @@
+.error {
+	display: flex;
+	gap: var(--spacing-3);
+	align-items: center;
+	padding: var(--spacing-4) var(--spacing-2);
+	color: var(--callout-warning-title);
+	font-size: var(--periscope-font-size-small);
+}

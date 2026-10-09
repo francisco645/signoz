@@ -1,0 +1,53 @@
+.row {
+	display: grid;
+	grid-template-columns: 18px 72px minmax(0, 1fr) auto;
+	gap: var(--spacing-4);
+	align-items: center;
+	height: 36px;
+	padding: 0 var(--spacing-1);
+	border-bottom: 1px solid var(--l1-border);
+
+	&:last-child {
+		border-bottom: 0;
+	}
+}
+
+.icon {
+	display: inline-flex;
+}
+
+.name {
+	color: var(--l1-foreground);
+}
+
+.detail {
+	overflow: hidden;
+	color: var(--l2-foreground);
+	font:
+		12px 'Geist Mono',
+		monospace;
+	text-align: right;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.status {
+	font-size: 12px;
+	font-weight: var(--font-weight-medium);
+	text-align: right;
+	white-space: nowrap;
+}
+
+.onTime,
+.receiving {
+	color: var(--callout-success-title);
+}
+
+.low {
+	color: var(--callout-warning-title);
+}
+
+.silent,
+.noData {
+	color: var(--l1-foreground);
+}

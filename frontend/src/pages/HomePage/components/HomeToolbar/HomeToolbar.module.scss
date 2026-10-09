@@ -1,0 +1,38 @@
+.toolbar {
+	display: flex;
+	gap: var(--spacing-4);
+	align-items: center;
+	height: 48px;
+	padding: 0 var(--spacing-10);
+	border-bottom: 1px solid var(--l1-border);
+}
+
+.title {
+	display: flex;
+	gap: var(--spacing-4);
+	align-items: center;
+	margin: 0 auto 0 0;
+	color: var(--l1-foreground);
+	font-size: 14px;
+	font-weight: var(--font-weight-medium);
+}
+
+.label,
+.versus {
+	color: var(--l3-foreground);
+	font-size: 12.5px;
+	white-space: nowrap;
+}
+
+.select {
+	flex: none;
+	width: 150px;
+}
+
+.stamp {
+	color: var(--l3-foreground);
+	font:
+		11.5px 'Geist Mono',
+		monospace;
+	white-space: nowrap;
+}

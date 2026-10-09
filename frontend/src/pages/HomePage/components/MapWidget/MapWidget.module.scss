@@ -1,0 +1,136 @@
+.map {
+	overflow: hidden;
+	margin-bottom: var(--spacing-12);
+	border: 1px solid var(--l2-border);
+	border-radius: var(--radius-2);
+	background: var(--l1-background);
+}
+
+.expanded {
+	grid-column: 1 / -1;
+
+	.body {
+		height: 520px;
+	}
+}
+
+.header {
+	display: flex;
+	gap: var(--spacing-5);
+	align-items: center;
+	padding: var(--spacing-4) var(--spacing-5) var(--spacing-4) var(--spacing-6);
+	border-bottom: 1px solid var(--l1-border);
+}
+
+.title {
+	color: var(--l1-foreground);
+	font-size: 13px;
+	font-weight: var(--font-weight-semibold, 600);
+	white-space: nowrap;
+}
+
+.subtitle {
+	overflow: hidden;
+	color: var(--l3-foreground);
+	font-size: 12px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.actions {
+	display: flex;
+	gap: var(--spacing-3);
+	align-items: center;
+	margin-left: auto;
+}
+
+.segmented {
+	display: inline-flex;
+	overflow: hidden;
+	border: 1px solid var(--l2-border);
+	border-radius: var(--radius-2);
+
+	button {
+		padding: 3px 9px;
+		border: 0;
+		background: none;
+		color: var(--l2-foreground);
+		font:
+			500 11.5px Inter,
+			sans-serif;
+		cursor: pointer;
+
+		&[aria-pressed='true'] {
+			background: var(--accent-primary);
+			color: #fff;
+		}
+
+		&:disabled {
+			opacity: 0.4;
+			cursor: not-allowed;
+		}
+	}
+}
+
+.body {
+	position: relative;
+	height: 380px;
+}
+
+.notice {
+	position: absolute;
+	top: var(--spacing-6);
+	right: var(--spacing-6);
+	left: var(--spacing-6);
+	z-index: 4;
+	display: flex;
+	gap: var(--spacing-4);
+	align-items: flex-start;
+	padding: var(--spacing-4) var(--spacing-5);
+	border-radius: var(--radius-2);
+	background: var(--l1-foreground);
+	color: var(--l1-background);
+	font-size: 12px;
+
+	svg {
+		flex: none;
+		margin-top: 2px;
+	}
+}
+
+.footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--spacing-3) var(--spacing-7);
+	align-items: center;
+	padding: var(--spacing-4) var(--spacing-6);
+	border-top: 1px solid var(--l1-border);
+	color: var(--l3-foreground);
+	font-size: 11.5px;
+}
+
+.legend {
+	display: inline-flex;
+	gap: var(--spacing-2);
+	align-items: center;
+}
+
+.swatch {
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	border: 1.5px solid;
+	border-radius: 50%;
+}
+
+.critical {
+	border-color: var(--callout-error-title);
+}
+
+.outside {
+	border-color: var(--callout-warning-title);
+}
+
+.why {
+	margin-left: auto;
+}

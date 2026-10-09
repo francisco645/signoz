@@ -1,0 +1,90 @@
+.head,
+.row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 96px 96px 80px;
+	gap: var(--spacing-6);
+	align-items: center;
+}
+
+.head {
+	padding: var(--spacing-4) var(--spacing-4) var(--spacing-3);
+	color: var(--l3-foreground);
+	font-size: 11.5px;
+
+	span:not(:first-child) {
+		text-align: right;
+	}
+}
+
+.row {
+	width: 100%;
+	height: 46px;
+	padding: 0 var(--spacing-4);
+	border: 0;
+	border-bottom: 1px solid var(--l1-border);
+	border-radius: var(--radius-1, 4px);
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+
+	&:last-child {
+		border-bottom: 0;
+	}
+
+	&:hover,
+	&:focus-visible,
+	&.highlighted {
+		background: var(--l2-background);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--accent-primary);
+		outline-offset: -2px;
+	}
+}
+
+.name {
+	display: flex;
+	gap: var(--spacing-4);
+	align-items: center;
+	min-width: 0;
+	color: var(--l1-foreground);
+	font-weight: var(--font-weight-medium);
+}
+
+.icon {
+	display: inline-flex;
+	flex: none;
+	width: 14px;
+}
+
+.text {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.cell {
+	color: var(--l1-foreground);
+	font:
+		12.5px/16px 'Geist Mono',
+		monospace;
+	text-align: right;
+	white-space: nowrap;
+
+	small {
+		display: block;
+		color: var(--l3-foreground);
+		font-size: 11px;
+	}
+}
+
+.critical {
+	color: var(--callout-error-title);
+}
+
+.warning {
+	color: var(--callout-warning-title);
+}
