@@ -64,6 +64,8 @@ export interface SignalSnapshot {
 	ratio?: number;
 	/** End of the last minute with data, in ms. */
 	lastSeenMs?: number;
+	/** Metrics: data arrives somewhere, in any environment. */
+	isReceiving?: boolean;
 }
 
 export interface TelemetrySnapshot {
