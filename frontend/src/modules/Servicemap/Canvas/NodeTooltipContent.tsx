@@ -1,5 +1,5 @@
 import { getNodeHealthLabel } from '../utils/nodeHealthLabel';
-import type { ServiceMapNode } from '../types';
+import type { HealthBand, ServiceMapNode } from '../types';
 import {
 	formatCount,
 	formatDuration,
@@ -11,16 +11,20 @@ import styles from './CanvasTooltip.module.scss';
 
 interface NodeTooltipContentProps {
 	node: ServiceMapNode;
+	healthLabels?: Partial<Record<HealthBand, string>>;
 }
 
-function NodeTooltipContent({ node }: NodeTooltipContentProps): JSX.Element {
+function NodeTooltipContent({
+	node,
+	healthLabels,
+}: NodeTooltipContentProps): JSX.Element {
 	const { metrics, incoming } = node;
 
 	return (
 		<>
 			<div className={styles.title}>
 				<span>{node.id}</span>
-				<span>{getNodeHealthLabel(node)}</span>
+				<span>{getNodeHealthLabel(node, healthLabels)}</span>
 			</div>
 			{metrics ? (
 				<>

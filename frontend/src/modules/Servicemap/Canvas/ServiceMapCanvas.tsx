@@ -30,7 +30,12 @@ import {
 import { useGraphCamera } from '../hooks/useGraphCamera';
 import { useLinkParticles } from '../hooks/useLinkParticles';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
-import type { ServiceMapGraph, ServiceMapLink, ServiceMapNode } from '../types';
+import type {
+	HealthBand,
+	ServiceMapGraph,
+	ServiceMapLink,
+	ServiceMapNode,
+} from '../types';
 import { buildAdjacency, linkEndId } from '../utils/adjacency';
 import type { Insets } from '../utils/camera';
 import { createGravityForce } from '../utils/forces';
@@ -62,6 +67,12 @@ interface ServiceMapCanvasProps {
 	isUpdating: boolean;
 	/** Particles run along the edges, caller to callee. */
 	isFlowEnabled: boolean;
+	/** Last known topology: dashed edges, no particles. */
+	isStale?: boolean;
+	/** Off where the page scrolls past the map, as when it is embedded. */
+	isZoomOnScroll?: boolean;
+	/** Overrides the health wording in the tooltip. */
+	healthLabels?: Partial<Record<HealthBand, string>>;
 	onNodeClick?: (id: string) => void;
 }
 
@@ -86,6 +97,9 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 			highlighted,
 			isUpdating,
 			isFlowEnabled,
+			isStale = false,
+			isZoomOnScroll = true,
+			healthLabels,
 			onNodeClick,
 		},
 		ref,
@@ -122,12 +136,13 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 				cursorId,
 				highlighted,
 				alertingTargets,
+				isStale,
 			});
 
 		const particles = useLinkParticles({
 			fgRef,
 			links: graph.links,
-			isEnabled: isFlowEnabled,
+			isEnabled: isFlowEnabled && !isStale,
 			activeId: hoveredId ?? selectedId,
 			highlighted,
 			palette,
@@ -190,6 +205,7 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 					nodePointerAreaPaint={paintNodeArea}
 					linkCanvasObject={paintLink}
 					linkPointerAreaPaint={paintLinkArea}
+					enableZoomInteraction={isZoomOnScroll}
 					{...particles}
 					nodeLabel={(): string => ''}
 					linkLabel={(): string => ''}
@@ -209,7 +225,7 @@ const ServiceMapCanvas = forwardRef<HTMLDivElement, ServiceMapCanvasProps>(
 				{hovered && (
 					<CanvasTooltip x={pointer.x} y={pointer.y}>
 						{hovered.kind === 'node' ? (
-							<NodeTooltipContent node={hovered.node} />
+							<NodeTooltipContent node={hovered.node} healthLabels={healthLabels} />
 						) : (
 							<LinkTooltipContent
 								link={hovered.link}

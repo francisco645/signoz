@@ -28,6 +28,8 @@ interface UseCanvasPaintersProps {
 	highlighted?: ReadonlySet<string>;
 	/** Nodes called over a degraded or critical link: their names stay visible. */
 	alertingTargets: ReadonlySet<string>;
+	/** Edges drawn dashed: the topology is not live. */
+	isStale?: boolean;
 }
 
 interface CanvasPainters {
@@ -72,6 +74,7 @@ export const useCanvasPainters = ({
 	cursorId,
 	highlighted,
 	alertingTargets,
+	isStale,
 }: UseCanvasPaintersProps): CanvasPainters => {
 	const activeId = hoveredId ?? selectedId;
 	const labelSpaceRef = useRef(new LabelSpace());
@@ -167,6 +170,7 @@ export const useCanvasPainters = ({
 					isBidirectional: link.isBidirectional,
 					isEmphasized,
 					isDimmed,
+					isDashed: isStale,
 					label: showLabel
 						? `${formatPercent(link.errorRate)} · ${formatRate(link.callRate)}`
 						: undefined,
@@ -176,7 +180,7 @@ export const useCanvasPainters = ({
 				labelSpaceRef.current,
 			);
 		},
-		[activeId, highlighted, palette],
+		[activeId, highlighted, isStale, palette],
 	);
 
 	const paintLinkArea = useCallback(

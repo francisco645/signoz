@@ -18,6 +18,8 @@ export interface LinkVisual {
 	isEmphasized: boolean;
 	isDimmed: boolean;
 	isBidirectional: boolean;
+	/** Last known topology, not live traffic. */
+	isDashed?: boolean;
 }
 
 /** Width in screen pixels: 0.1 req/s → 1.3, 1 → 2, 10 → 3, 100 → 4, capped at 6. */
@@ -132,9 +134,13 @@ export const drawLink = (
 	ctx.strokeStyle = color;
 	ctx.fillStyle = color;
 	ctx.lineWidth = width;
+	if (visual.isDashed) {
+		ctx.setLineDash([4 / scale, 3 / scale]);
+	}
 
 	const control = traceLink(ctx, start, end, visual.isBidirectional);
 	ctx.stroke();
+	ctx.setLineDash([]);
 	drawArrow(ctx, start, control, end, width, scale);
 
 	const middle = pointOnCurve(start, control, end, 0.5);
