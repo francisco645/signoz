@@ -29,7 +29,9 @@ interface MapWidgetProps {
 	startMs: number;
 	endMs: number;
 	windowLabel: string;
+	view: '2d' | '3d';
 	isExpanded: boolean;
+	onViewChange: (view: '2d' | '3d') => void;
 	onExpandChange: (isExpanded: boolean) => void;
 	onNodeClick: (id: string) => void;
 	onOpen: () => void;
@@ -45,7 +47,9 @@ function MapWidget({
 	startMs,
 	endMs,
 	windowLabel,
+	view,
 	isExpanded,
+	onViewChange,
 	onExpandChange,
 	onNodeClick,
 	onOpen,
@@ -53,10 +57,9 @@ function MapWidget({
 	const fgRef: ServiceMapGraphRef = useRef();
 	const [body, setBody] = useState<HTMLDivElement | null>(null);
 	const { width, height } = useContainerSize(body);
-	const [view, setView] = useState<'2d' | '3d'>('2d');
 	const [is3dAvailable, setIs3dAvailable] = useState(isWebGLAvailable);
 	const animate = useAnimateDirection();
-	const is3d = view === '3d' && isExpanded && is3dAvailable;
+	const is3d = view === '3d' && is3dAvailable;
 	const planes = usePanoramaPlanes(
 		graph,
 		startMs * MS_TO_NS,
@@ -75,18 +78,8 @@ function MapWidget({
 				view={is3d ? '3d' : '2d'}
 				is3dAvailable={is3dAvailable && !staleNotice}
 				isExpanded={isExpanded}
-				onViewChange={(next): void => {
-					setView(next);
-					if (next === '3d') {
-						onExpandChange(true);
-					}
-				}}
-				onExpandChange={(next): void => {
-					onExpandChange(next);
-					if (!next) {
-						setView('2d');
-					}
-				}}
+				onViewChange={onViewChange}
+				onExpandChange={onExpandChange}
 				onOpen={onOpen}
 			/>
 			<div ref={setBody} className={styles.body}>
@@ -105,10 +98,11 @@ function MapWidget({
 						planes={planes.planes}
 						adjustedCount={planes.adjustedCount}
 						onResetPlanes={planes.reset}
+						isCompact={!isExpanded}
 						onNodeClick={onNodeClick}
 						onError={(): void => {
 							setIs3dAvailable(false);
-							setView('2d');
+							onViewChange('2d');
 						}}
 					/>
 				) : (

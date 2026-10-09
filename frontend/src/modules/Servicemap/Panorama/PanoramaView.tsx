@@ -36,6 +36,8 @@ interface PanoramaViewProps {
 	height: number;
 	windowLabel: string;
 	selectedId?: string;
+	/** Embedded in a small card: the host shows the legend, so only the scene and its controls stay. */
+	isCompact?: boolean;
 	onNodeClick: (id: string) => void;
 }
 
@@ -58,6 +60,7 @@ function PanoramaView({
 	height,
 	windowLabel,
 	selectedId,
+	isCompact = false,
 	onNodeClick,
 }: PanoramaViewProps): JSX.Element {
 	const isDarkMode = useIsDarkMode();
@@ -101,7 +104,8 @@ function PanoramaView({
 		selectedId,
 		width,
 		height,
-		leftInsetPx: width > LEGEND_INSET_MIN_WIDTH_PX ? legendSize.width : 0,
+		leftInsetPx:
+			!isCompact && width > LEGEND_INSET_MIN_WIDTH_PX ? legendSize.width : 0,
 		onHover: (hit, x, y) => setHover(hit ? { hit, x, y } : undefined),
 		onNodeClick: (id) => {
 			containerRef.current?.focus({ preventScroll: true });
@@ -149,15 +153,19 @@ function PanoramaView({
 				}}
 				onAutoRotateChange={setIsAutoRotating}
 			/>
-			<PanoramaSummary model={model} windowLabel={windowLabel} />
-			<PanoramaLegend
-				ref={setLegend}
-				model={model}
-				theme={theme}
-				adjustedCount={adjustedCount}
-				onResetPlanes={onResetPlanes}
-			/>
-			<div className={cx(styles.card, styles.hint)}>{PANORAMA_TEXT.hint}</div>
+			{!isCompact && (
+				<>
+					<PanoramaSummary model={model} windowLabel={windowLabel} />
+					<PanoramaLegend
+						ref={setLegend}
+						model={model}
+						theme={theme}
+						adjustedCount={adjustedCount}
+						onResetPlanes={onResetPlanes}
+					/>
+					<div className={cx(styles.card, styles.hint)}>{PANORAMA_TEXT.hint}</div>
+				</>
+			)}
 			<div className={styles.srOnly} aria-live="polite">
 				{describePanorama(model)}
 			</div>

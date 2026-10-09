@@ -22,6 +22,8 @@ function Overview(): JSX.Element {
 	const [windowKey, setWindowKey] = useState<HomeWindowKey>('15m');
 	const [hovered, setHovered] = useState<string>();
 	const [isMapExpanded, setIsMapExpanded] = useState(false);
+	// Kept here: expanding moves the card, which remounts it.
+	const [mapView, setMapView] = useState<'2d' | '3d'>('2d');
 	const { safeNavigate } = useSafeNavigate();
 	const data = useOverviewData(windowKey);
 	const pinned = usePinnedDashboards();
@@ -64,7 +66,9 @@ function Overview(): JSX.Element {
 			startMs={mapWindow.startMs}
 			endMs={mapWindow.endMs}
 			windowLabel={`${formatClock(mapWindow.startMs)}–${formatClock(mapWindow.endMs)}`}
+			view={mapView}
 			isExpanded={isMapExpanded}
+			onViewChange={setMapView}
 			onExpandChange={setIsMapExpanded}
 			onNodeClick={(id): void => setHovered(id)}
 			onOpen={(): void => openMap(hovered)}
