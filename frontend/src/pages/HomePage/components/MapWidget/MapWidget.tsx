@@ -117,7 +117,6 @@ function MapWidget({
 						isUpdating={false}
 						isFlowEnabled={animate.isEnabled}
 						isStale={!!staleNotice}
-						isZoomOnScroll={false}
 						healthLabels={HOME_HEALTH_LABELS}
 						onNodeClick={onNodeClick}
 					/>
